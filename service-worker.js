@@ -1,6 +1,6 @@
 // Сгенерировано tools/build.mjs — не редактировать вручную.
 // Офлайн-кэш игры. Сохранения хранятся отдельно (IndexedDB) и сюда не попадают.
-const VERSION = '3bae09e78a5e';
+const VERSION = '415eaed733cb';
 const CACHE = 'shaman-' + VERSION;
 const PRECACHE = [
   "./",

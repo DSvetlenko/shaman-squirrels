@@ -227,14 +227,15 @@ export class GameScene extends Phaser.Scene {
     this.dragging = null;
     this.input.on('pointerdown', (p) => {
       if (!this.ghost) return;
-      // Касание у конца доски или батута — поворот, в остальных местах — перенос.
+      // Касание у кольца на конце доски — поворот, в остальных местах — перенос.
+      // Батут и ящик только переносятся (батут поворачивают кнопками).
       const g = this.ghost;
       let rotate = false;
-      if (g.type !== 'crate') {
-        const half = g.type === 'trampoline' ? ITEMS.trampoline.w / 2 : ITEMS[g.type].len / 2;
-        const ends = plankEnds(g.x, g.y, g.angle, half * 2);
+      if (g.type === 'plank' || g.type === 'longPlank') {
+        const len = ITEMS[g.type].len;
         const w = p.positionToCamera(this.cameras.main);
-        rotate = ends.some((e) => Math.hypot(e.x - w.x, e.y - w.y) < 26);
+        const fromCenter = Math.hypot(w.x - g.x, w.y - g.y);
+        rotate = fromCenter > len * 0.32 && plankEnds(g.x, g.y, g.angle, len).some((e) => Math.hypot(e.x - w.x, e.y - w.y) < 24);
       }
       this.dragging = { x: p.x, y: p.y, id: p.id, rotate };
     });
