@@ -3,7 +3,7 @@
 // разворачивается у стен и на слишком крутых подъёмах. Взяв орех,
 // разворачивается и несёт его к дуплу.
 
-import { SQUIRREL, CAT, TRAMPOLINE } from '../config.js';
+import { SQUIRREL, CAT, TRAMPOLINE, BUBBLE } from '../config.js';
 
 const Matter = () => Phaser.Physics.Matter.Matter;
 
@@ -27,6 +27,9 @@ export class Squirrel {
     this.stuckX = x;
     this.stuckT = 0;
     this.airSteps = 0;
+    this.floatSteps = 0;     // внутри пузыря
+    this.bubbleCd = 0;
+    this.portalCd = 0;
 
     const M = Matter();
     this.body = M.Bodies.rectangle(x, y, SQUIRREL.bodyW, SQUIRREL.bodyH, {
@@ -35,7 +38,7 @@ export class Squirrel {
       density: 0.0012,
       inertia: Infinity, inverseInertia: 0,
       label: 'squirrel',
-      collisionFilter: { category: CAT.SQUIRREL, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SENSOR },
+      collisionFilter: { category: CAT.SQUIRREL, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SENSOR | CAT.ROCK },
     });
     this.body.plugin = { squirrel: this };
     scene.matter.world.add(this.body);
@@ -44,12 +47,33 @@ export class Squirrel {
     if (!scene.headless) {
       this.sprite = scene.add.image(x, y, 'sqA').setDepth(30);
       this.sprite.setDisplaySize(SQUIRREL.spriteW, SQUIRREL.spriteH);
-      this.nutSprite = scene.add.image(x, y, 'nut').setDepth(31).setDisplaySize(10, 12).setVisible(false);
+      const heavy = scene.level && scene.level.heavyNuts;
+      this.nutSprite = scene.add.image(x, y, heavy ? 'cone' : 'nut').setDepth(31).setDisplaySize(heavy ? 14 : 10, heavy ? 18 : 12).setVisible(false);
+      this.bubbleSprite = null;
     }
   }
 
   get x() { return this.body.position.x; }
   get y() { return this.body.position.y; }
+
+  // Руна пути: сразу смотрим в нужную сторону.
+  forceDir(d) {
+    if (this.dir === d) return false;
+    this.dir = d;
+    this.turnCd = SQUIRREL.turnCooldown;
+    this.stuckT = 0;
+    return true;
+  }
+
+  enterBubble() {
+    if (this.bubbleCd > 0 || this.floatSteps > 0) return false;
+    this.floatSteps = BUBBLE.steps;
+    this.bubbleCd = BUBBLE.steps + 40;
+    if (this.sprite && !this.bubbleSprite) {
+      this.bubbleSprite = this.scene.add.image(this.x, this.y, 'bubble').setDepth(32).setDisplaySize(40, 40).setAlpha(0.85);
+    }
+    return true;
+  }
 
   turn() {
     if (this.turnCd > 0) return;
@@ -65,7 +89,21 @@ export class Squirrel {
     if (this.turnCd > 0) this.turnCd--;
     if (this.hopCd > 0) this.hopCd--;
     if (this.trampCd > 0) this.trampCd--;
+    if (this.bubbleCd > 0) this.bubbleCd--;
+    if (this.portalCd > 0) this.portalCd--;
     this.sinceHop++;
+
+    if (this.floatSteps > 0) {
+      this.floatSteps--;
+      this.grounded = false;
+      M.Body.setVelocity(b, { x: this.dir * BUBBLE.vx, y: BUBBLE.vy });
+      if (this.floatSteps === 0) {
+        this.airSteps = 30;
+        this.scene.onEventCb('sfx', 'pop');
+        if (this.bubbleSprite) { this.bubbleSprite.destroy(); this.bubbleSprite = null; }
+      }
+      return;
+    }
 
     let grounded = false, gN = null, wall = false, steepUp = false, bound = false;
     for (const c of contacts) {
@@ -98,7 +136,8 @@ export class Squirrel {
     if (bound) { this.turn(); }
     else if (steepUp && grounded) { this.turn(); }
     else if (wall) {
-      if (grounded && this.hopCd === 0 && this.sinceHop > 40) {
+      const heavy = this.hasNut && this.scene.level && this.scene.level.heavyNuts;
+      if (grounded && !heavy && this.hopCd === 0 && this.sinceHop > 40) {
         M.Body.setVelocity(b, { x: -this.dir * 0.15, y: -SQUIRREL.hopVy });
         this.hopCd = 30;
         this.sinceHop = 0;
@@ -111,7 +150,7 @@ export class Squirrel {
     if (grounded && this.sinceHop > 6) {
       // Движение вдоль поверхности, чтобы не «слетать» на спусках.
       const tx = -this.groundN.y, ty = this.groundN.x;
-      const s = SQUIRREL.speed;
+      const s = this.hasNut && this.scene.level && this.scene.level.heavyNuts ? SQUIRREL.speed * 0.8 : SQUIRREL.speed;
       M.Body.setVelocity(b, { x: this.dir * s * tx, y: this.dir * s * ty + 0.25 });
     } else if (!grounded) {
       // В воздухе — лёгкое управление, чтобы белка не зависала у края.
@@ -172,6 +211,7 @@ export class Squirrel {
         this.nutSprite.rotation = this.sprite.rotation;
       }
     }
+    if (this.bubbleSprite) this.bubbleSprite.setPosition(b.position.x, b.position.y - 4);
   }
 
   destroy() {
@@ -179,5 +219,6 @@ export class Squirrel {
     this.body = null;
     if (this.sprite) this.sprite.destroy();
     if (this.nutSprite) this.nutSprite.destroy();
+    if (this.bubbleSprite) this.bubbleSprite.destroy();
   }
 }

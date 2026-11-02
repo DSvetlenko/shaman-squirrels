@@ -1,5 +1,5 @@
 // Готовые картинки для интерфейса (лоток предметов, главное меню).
-import { plankSVG, crateSVG, trampolineSVG, islandArt, stumpSVG, nutPileSVG, squirrelSVG, STUMP } from '../art/svg.js';
+import { plankSVG, crateSVG, trampolineSVG, arrowSVG, bubbleSVG, islandArt, stumpSVG, nutPileSVG, squirrelSVG, STUMP } from '../art/svg.js';
 import { ITEMS } from '../config.js';
 
 const uri = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -12,6 +12,8 @@ export function getItemArt() {
       longPlank: uri(plankSVG(ITEMS.longPlank.len)),
       crate: uri(crateSVG(ITEMS.crate.size)),
       trampoline: uri(trampolineSVG()),
+      arrow: uri(arrowSVG()),
+      bubble: uri(bubbleSVG()),
     };
   }
   return itemArt;

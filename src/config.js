@@ -42,8 +42,13 @@ export const ITEMS = {
   longPlank:  { name: 'Длинная доска', short: 'Длинная', len: 180, thick: 11, cost: 25 },
   crate:      { name: 'Ящик',    short: 'Ящик',    size: 40, cost: 10 },
   trampoline: { name: 'Батут',   short: 'Батут',   w: 62, h: 12, cost: 30 },
+  arrow:      { name: 'Руна пути', short: 'Руна',  w: 26, h: 44, cost: 10 },
+  bubble:     { name: 'Пузырь',  short: 'Пузырь',  r: 19, cost: 20 },
 };
-export const ITEM_ORDER = ['plank', 'longPlank', 'crate', 'trampoline'];
+export const ITEM_ORDER = ['plank', 'longPlank', 'crate', 'trampoline', 'arrow', 'bubble'];
+
+// Пузырь: белка внутри всплывает и плывёт вперёд.
+export const BUBBLE = { steps: 78, vy: -1.6, vx: 0.95 };
 
 // Категории столкновений Matter.
 export const CAT = {
@@ -53,6 +58,7 @@ export const CAT = {
   STATIC_OBJ: 0x0008,
   SQUIRREL: 0x0010,
   SENSOR: 0x0020,
+  ROCK: 0x0040,
 };
 
 export const ROTATE_STEP = 5;   // градусов за нажатие кнопки поворота

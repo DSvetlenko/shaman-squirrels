@@ -13,7 +13,13 @@ const port = 8765;
 const server = spawn(process.execPath, [path.join(root, 'tools/serve.mjs'), String(port)], { stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 400));
 
-const only = process.argv[2] ? `?only=${process.argv[2]}` : '';
+const args = process.argv.slice(2);
+const src = args.find((a) => a.startsWith('--src='));
+const id = args.find((a) => !a.startsWith('--'));
+const qs = new URLSearchParams();
+if (id) qs.set('only', id);
+if (src) qs.set('src', '/' + src.slice(6));
+const only = qs.toString() ? '?' + qs : '';
 const browser = await chromium.launch();
 const page = await browser.newPage();
 const errors = [];
@@ -30,11 +36,13 @@ for (const r of report) {
   const s = r.solution, e = r.empty;
   const pass = s.win === true;
   const notTrivial = !e.win;
-  ok = ok && pass && notTrivial;
-  const fmt = (x) => x.error ? `ошибка: ${x.error} (спасено ${x.saved ?? '?'})` : `${x.win ? 'победа' : 'поражение'} ${x.saved}/${x.total}, потеряно ${x.lost}, ${x.timeSec.toFixed(1)} с, ★${x.stars}`;
-  console.log(`${pass && notTrivial ? 'OK  ' : 'FAIL'} ${r.id} «${r.name}» цель ${r.goal}/${r.total}`);
+  const failsOk = (r.fails || []).every((f) => !f.win);
+  ok = ok && pass && notTrivial && failsOk;
+  const fmt = (x) => x.error ? `ошибка: ${x.error} (спасено ${x.saved ?? '?'})` : `${x.win ? 'победа' : 'поражение'} ${x.saved}/${x.total}, потеряно ${x.lost}${x.lostBy ? ' ' + JSON.stringify(x.lostBy) : ''}, ${x.timeSec.toFixed(1)} с, ★${x.stars}, магия ${x.manaSpent}`;
+  console.log(`${pass && notTrivial && failsOk ? 'OK  ' : 'FAIL'} ${r.id} «${r.name}» цель ${r.goal}/${r.total}`);
   console.log(`     с решением: ${fmt(s)}`);
   console.log(`     без решения: ${fmt(e)}`);
+  (r.fails || []).forEach((f, i) => console.log(`     ${f.win ? '!! ' : ''}неверное решение ${i + 1}: ${fmt(f)}`));
 }
 if (errors.length) { console.log('Ошибки JS:', errors); ok = false; }
 process.exit(ok ? 0 : 1);

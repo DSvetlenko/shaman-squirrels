@@ -13,7 +13,7 @@ export function defaultSettings() {
 export function defaultStats() {
   return {
     squirrelsSaved: 0, squirrelsLost: 0, nutsCarried: 0,
-    itemsPlaced: { plank: 0, longPlank: 0, crate: 0, trampoline: 0 },
+    itemsPlaced: { plank: 0, longPlank: 0, crate: 0, trampoline: 0, arrow: 0, bubble: 0 },
     manaSpent: 0, levelsWon: 0, levelsLost: 0, restarts: 0,
     playTimeMs: 0, sessions: 0, perfectRuns: 0,
   };

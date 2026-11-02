@@ -29,7 +29,7 @@ export function createPlank(scene, spec, pins) {
     label: 'plank',
     collisionFilter: {
       category: CAT.PLANK,
-      mask: CAT.SQUIRREL | CAT.CRATE | (terrainPinned ? 0 : CAT.TERRAIN),
+      mask: CAT.SQUIRREL | CAT.CRATE | CAT.ROCK | (terrainPinned ? 0 : CAT.TERRAIN),
     },
   });
   scene.matter.world.add(body);
@@ -76,7 +76,7 @@ export function createCrate(scene, spec) {
     angle: rad(spec.angle || 0), chamfer: { radius: 3 },
     density: 0.004, friction: 0.9, frictionStatic: 1.2, frictionAir: 0.01, restitution: 0,
     label: 'crate',
-    collisionFilter: { category: CAT.CRATE, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SQUIRREL },
+    collisionFilter: { category: CAT.CRATE, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SQUIRREL | CAT.ROCK },
   });
   scene.matter.world.add(body);
   const obj = { kind: 'crate', type: 'crate', spec, body, sprite: null };
@@ -105,9 +105,47 @@ export function createTrampoline(scene, spec) {
   return obj;
 }
 
+// Руна пути: белки без ореха поворачивают в её сторону.
+export function createArrow(scene, spec) {
+  const M = Matter();
+  const it = ITEMS.arrow;
+  const dir = spec.dir === -1 ? -1 : 1;
+  const body = M.Bodies.rectangle(spec.x, spec.y, it.w, it.h, {
+    isStatic: true, isSensor: true, label: 'arrow',
+    collisionFilter: { category: CAT.SENSOR, mask: CAT.SQUIRREL },
+  });
+  scene.matter.world.add(body);
+  const obj = { kind: 'arrow', type: 'arrow', spec: { ...spec, dir }, body, sprite: null, dir };
+  body.plugin = { obj };
+  if (!scene.headless) {
+    obj.sprite = scene.add.image(spec.x, spec.y, 'arrow').setDepth(19).setDisplaySize(34, 48).setFlipX(dir < 0);
+    scene.tweens.add({ targets: obj.sprite, alpha: 0.72, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+  }
+  return obj;
+}
+
+// Пузырь: висит в воздухе, белка внутри всплывает.
+export function createBubble(scene, spec) {
+  const M = Matter();
+  const it = ITEMS.bubble;
+  const body = M.Bodies.circle(spec.x, spec.y, it.r, {
+    isStatic: true, isSensor: true, label: 'bubble',
+    collisionFilter: { category: CAT.SENSOR, mask: CAT.SQUIRREL },
+  });
+  scene.matter.world.add(body);
+  const obj = { kind: 'bubble', type: 'bubble', spec, body, sprite: null };
+  body.plugin = { obj };
+  if (!scene.headless) {
+    obj.sprite = scene.add.image(spec.x, spec.y, 'bubble').setDepth(19).setDisplaySize(it.r * 2 + 6, it.r * 2 + 6);
+    scene.tweens.add({ targets: obj.sprite, scaleX: obj.sprite.scaleX * 1.05, scaleY: obj.sprite.scaleY * 0.96, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+  }
+  return obj;
+}
+
 export function syncProp(obj) {
   if (!obj.sprite) return;
   const b = obj.body;
+  if (obj.kind === 'arrow' || obj.kind === 'bubble') return;
   obj.sprite.setPosition(b.position.x, b.position.y).setRotation(b.angle);
   if (obj.kind === 'plank') {
     for (const bo of obj.bolts) {

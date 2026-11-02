@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const data = JSON.parse(fs.readFileSync(path.join(root, 'levels/levels.json'), 'utf8'));
-const COST = { plank: 15, longPlank: 25, crate: 10, trampoline: 30 };
+import { ITEMS } from '../src/config.js';
+const COST = Object.fromEntries(Object.entries(ITEMS).map(([k, v]) => [k, v.cost]));
 const errors = [];
 const ids = new Set();
 for (const [i, l] of (data.levels || []).entries()) {

@@ -255,3 +255,88 @@ export function backgroundSVG(theme = 'dusk') {
     .forEach(([cx, cy, s], i) => { o += cloud(cx, cy, s, 0.92, i % 2 ? '#fff7ee' : '#fdeee0'); });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${o}</svg>`;
 }
+
+// ---------------------------------------------------------------- новые механики
+// Руна пути: светящийся знак-стрелка, смотрит вправо. 34×48.
+export function arrowSVG() {
+  const body = `<defs><radialGradient id="rg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7fe3ff" stop-opacity=".55"/><stop offset="1" stop-color="#7fe3ff" stop-opacity="0"/></radialGradient></defs>
+  <ellipse cx="17" cy="24" rx="17" ry="23" fill="url(#rg)"/>
+  <path d="M7 6 L7 42" stroke="#163042" stroke-width="5" stroke-linecap="round"/>
+  <path d="M7 6 L7 42" stroke="#9fe9ff" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M7 13 L24 13 L30 20 L24 27 L7 27 Z" fill="#1d4a63" stroke="#163042" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M10 16 L23 16 L27 20 L23 24 L10 24 Z" fill="#7fe3ff"/>
+  <path d="M12 20 L22 20" stroke="#e8fbff" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="7" cy="42" r="2.6" fill="#9fe9ff"/>`;
+  return svgDoc(34, 48, body);
+}
+
+export function bubbleSVG() {
+  const body = `<defs><radialGradient id="bb" cx=".38" cy=".34" r=".7"><stop offset="0" stop-color="#ffffff" stop-opacity=".55"/><stop offset=".55" stop-color="#b9f2ff" stop-opacity=".18"/><stop offset="1" stop-color="#7fd8ff" stop-opacity=".5"/></radialGradient></defs>
+  <circle cx="22" cy="22" r="19.5" fill="url(#bb)" stroke="#c9f6ff" stroke-width="1.6" opacity=".95"/>
+  <path d="M10 15 Q13 9 20 8" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".9"/>
+  <circle cx="30" cy="31" r="2" fill="#fff" opacity=".6"/>`;
+  return svgDoc(44, 44, body);
+}
+
+export function portalSVG(color = '#b18cff') {
+  const body = `<defs><radialGradient id="pg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#140c24"/><stop offset=".6" stop-color="${color}" stop-opacity=".55"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient></defs>
+  <ellipse cx="22" cy="26" rx="21" ry="25" fill="url(#pg)"/>
+  <ellipse cx="22" cy="26" rx="14" ry="20" fill="#0d0818" stroke="${color}" stroke-width="3"/>
+  <ellipse cx="22" cy="26" rx="9" ry="14" fill="none" stroke="${color}" stroke-width="1.4" opacity=".7" stroke-dasharray="4 5"/>
+  <ellipse cx="22" cy="26" rx="14" ry="20" fill="none" stroke="#fff" stroke-width="1" opacity=".5"/>`;
+  return svgDoc(44, 52, body);
+}
+
+// Хрупкий мост: каменные плиты на старых верёвках. Высота 16, верх по y=2.
+export function fragileSVG(w, seed = 1) {
+  const r = rng(seed * 7 + 3);
+  const n = Math.max(2, Math.round(w / 26));
+  const step = w / n;
+  let o = '';
+  for (let i = 0; i < n; i++) {
+    const x0 = f1(i * step + 1), ww = f1(step - 2);
+    const tone = ['#9a8f84', '#8a8075', '#a69b8f'][i % 3];
+    o += `<rect x="${x0}" y="2" width="${ww}" height="12" rx="2.5" fill="${tone}" stroke="${OUTLINE}" stroke-width="1.6"/>`;
+    o += `<path d="M${f1(i * step + step * uni(r, .3, .6))} 3 l${f1(uni(r, -4, 4))} 5 l${f1(uni(r, -3, 3))} 5" stroke="#4a3f36" stroke-width="1.2" fill="none"/>`;
+    o += `<rect x="${f1(i * step + 3)}" y="3.5" width="${f1(step - 8)}" height="2" rx="1" fill="#fff" opacity=".22"/>`;
+  }
+  o += `<path d="M0 8 L${w} 8" stroke="#6b4a2c" stroke-width="1.4" opacity=".7" stroke-dasharray="2 3"/>`;
+  return svgDoc(Math.ceil(w), 16, o);
+}
+
+// Ворота: решётка из брёвен. w×h.
+export function gateSVG(w, h) {
+  let o = `<rect x="1" y="1" width="${w - 2}" height="${h - 2}" rx="3" fill="#2b1d14" stroke="${OUTLINE}" stroke-width="2"/>`;
+  const bars = Math.max(2, Math.round(w / 9));
+  for (let i = 0; i < bars; i++) {
+    const x = f1(3 + (i + 0.5) * (w - 6) / bars);
+    o += `<rect x="${f1(x - 2.6)}" y="3" width="5.2" height="${h - 6}" rx="2.6" fill="url(#wood)" stroke="${OUTLINE}" stroke-width="1.2"/>`;
+  }
+  for (const yy of [h * 0.22, h * 0.72]) o += `<rect x="2" y="${f1(yy)}" width="${w - 4}" height="6" rx="2" fill="#7e4f2b" stroke="${OUTLINE}" stroke-width="1.2"/>`;
+  o += `<circle cx="${w / 2}" cy="${f1(h * 0.22 + 3)}" r="2" fill="#d9c27a"/><circle cx="${w / 2}" cy="${f1(h * 0.72 + 3)}" r="2" fill="#d9c27a"/>`;
+  return svgDoc(w, h, o, DEFS.wood);
+}
+
+// Нажимная плита. 44×12, верх по y=2.
+export function plateSVG(on = false) {
+  const col = on ? '#ffd27a' : '#c9a24a';
+  const body = `<rect x="1" y="5" width="42" height="7" rx="2" fill="#4c4943" stroke="${OUTLINE}" stroke-width="1.4"/>
+  <rect x="5" y="${on ? 5 : 1.5}" width="34" height="${on ? 4 : 6}" rx="2" fill="${col}" stroke="${OUTLINE}" stroke-width="1.4"/>
+  <path d="M15 ${on ? 7 : 4.5} h14" stroke="#fff6d8" stroke-width="1.2" opacity=".8"/>`;
+  return svgDoc(44, 12, body);
+}
+
+export function rockSVG() {
+  const body = `<path d="M5 14 L8 6 L16 3 L24 7 L27 15 L22 24 L12 26 L5 21 Z" fill="#7d746c" stroke="${OUTLINE}" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M9 9 L15 6 L20 8" stroke="#b7aea4" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M14 18 l5 -3 M10 15 l2 4" stroke="#4f4842" stroke-width="1.3" fill="none"/>`;
+  return svgDoc(30, 30, body);
+}
+
+// Тяжёлая шишка вместо ореха.
+export function coneSVG() {
+  let o = `<ellipse cx="9" cy="12" rx="7" ry="9" fill="#8a5a33" stroke="${OUTLINE}" stroke-width="1.4"/>`;
+  for (let i = 0; i < 4; i++) o += `<path d="M3 ${6 + i * 4} Q9 ${9 + i * 4} 15 ${6 + i * 4}" stroke="#4d2f1b" stroke-width="1.2" fill="none"/>`;
+  o += `<path d="M9 3 L9 0" stroke="#3d6b2c" stroke-width="2" stroke-linecap="round"/>`;
+  return svgDoc(18, 22, o);
+}

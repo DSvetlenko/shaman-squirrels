@@ -757,7 +757,7 @@ function updateTray() {
   };
   let mode, html;
   if (pl) {
-    mode = 'place:' + pl.type;
+    mode = 'place:' + pl.type + (pl.type === 'arrow' ? pl.dir : '');
     const it = ITEMS[pl.type];
     let status, cls = 'ok';
     if (!pl.valid) { status = 'Здесь поставить нельзя'; cls = 'bad'; }
@@ -765,9 +765,12 @@ function updateTray() {
       status = pl.pinned.length === 2 ? 'Оба конца прибиты' : pl.pinned.length === 1 ? 'Прибит один конец' : 'Не прибита, упадёт';
       if (pl.pinned.length < 2) cls = '';
     } else if (pl.type === 'crate') { status = 'Упадёт на опору'; cls = ''; }
+    else if (pl.type === 'arrow') status = pl.dir < 0 ? 'Поворачивает влево' : 'Поворачивает вправо';
+    else if (pl.type === 'bubble') status = 'Поднимает белок';
     else status = 'Подбрасывает белок';
-    const rot = pl.type !== 'crate';
+    const rot = pl.type === 'plank' || pl.type === 'longPlank' || pl.type === 'trampoline';
     html = `
+      ${pl.type === 'arrow' ? `<button class="iconbtn" data-hold="1" aria-label="Развернуть руну">${icon('arrow-left-right', 20)}</button>` : ''}
       ${rot ? `<button class="iconbtn" data-hold="-1" aria-label="Повернуть влево">${icon('rotate-ccw', 20)}</button>
       <button class="iconbtn" data-hold="1" aria-label="Повернуть вправо">${icon('rotate-cw', 20)}</button>` : ''}
       <span class="spacer"></span>

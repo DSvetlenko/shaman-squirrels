@@ -3,11 +3,14 @@
 // после «Выпустить» белки бегут сами.
 
 import { WORLD, STEP_MS, ITEMS, PIN_RADIUS, CAT, SQUIRREL } from '../config.js';
-import { islandArt, squirrelSVG, nutSVG, nutPileSVG, stumpSVG, STUMP, plankSVG, boltSVG, crateSVG, trampolineSVG, spikesSVG } from '../art/svg.js';
+import { islandArt, squirrelSVG, nutSVG, nutPileSVG, stumpSVG, STUMP, plankSVG, boltSVG, crateSVG, trampolineSVG, spikesSVG, arrowSVG, bubbleSVG, coneSVG } from '../art/svg.js';
 import { addSVGTexture } from '../art/textures.js';
 import { convexHull, pointInPoly, distToPoly, rectCorners, rad } from '../systems/geometry.js';
 import { Squirrel } from '../entities/Squirrel.js';
-import { createPlank, createCrate, createTrampoline, syncProp, destroyProp, plankEnds, currentEnd, trampNormal } from '../entities/props.js';
+import { createPlank, createCrate, createTrampoline, createArrow, createBubble, syncProp, destroyProp, plankEnds, currentEnd, trampNormal } from '../entities/props.js';
+import { Mechanics } from '../systems/mechanics.js';
+
+const zeroItems = () => Object.fromEntries(Object.keys(ITEMS).map((k) => [k, 0]));
 
 const Matter = () => Phaser.Physics.Matter.Matter;
 
@@ -27,13 +30,14 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'build';          // build | run | end
     this.mana = L.mana;
     this.manaSpent = 0;
-    this.items = { plank: 0, longPlank: 0, crate: 0, trampoline: 0, ...(L.items || {}) };
+    this.items = { ...zeroItems(), ...(L.items || {}) };
     this.placed = [];
     this.undoStack = [];
     this.squirrels = [];
     this.released = 0;
     this.saved = 0;
     this.lost = 0;
+    this.lostBy = {};
     this.runSteps = 0;
     this.goalStep = null;
     this.lastEventStep = 0;
@@ -43,7 +47,8 @@ export class GameScene extends Phaser.Scene {
     this.stepsPerFrame = 1;
     this.ghost = null;
     this.placementPaused = false;
-    this.itemsUsed = { plank: 0, longPlank: 0, crate: 0, trampoline: 0 };
+    this.itemsUsed = zeroItems();
+    this.mech = new Mechanics(this);
 
     const world = this.matter.world;
     world.autoUpdate = false;
@@ -88,6 +93,10 @@ export class GameScene extends Phaser.Scene {
     tex('bolt', boltSVG());
     tex('crate', crateSVG(ITEMS.crate.size));
     tex('trampoline', trampolineSVG());
+    tex('arrow', arrowSVG());
+    tex('bubble', bubbleSVG());
+    if (L.heavyNuts) tex('cone', coneSVG(), s * 0.8);
+    jobs.push(...this.mech.textureJobs(s));
     this.islandArts = L.islands.map((isl, i) => islandArt({ ...isl, seed: isl.seed ?? i + 1 }));
     this.islandArts.forEach((a, i) => jobs.push(addSVGTexture(this, `isl_${L.id}_${i}`, a.svg, s)));
     (L.spikes || []).forEach((sp, i) => jobs.push(addSVGTexture(this, `spk_${L.id}_${i}`, spikesSVG(sp.w), s)));
@@ -168,6 +177,8 @@ export class GameScene extends Phaser.Scene {
       }));
       if (!this.headless) this.add.image(sp.x, sp.y + 1, `spk_${L.id}_${i}`).setOrigin(0, 1).setDisplaySize(Math.ceil(sp.w), 22).setDepth(13);
     });
+
+    this.mech.build();
 
     // Заранее стоящие предметы уровня.
     for (const p of L.props || []) {
@@ -272,12 +283,16 @@ export class GameScene extends Phaser.Scene {
     const L = this.level;
     const def = L.ghostStart || { x: (L.hollow.x + L.nuts.x) / 2, y: Math.min(L.hollow.y, L.nuts.y) - 40 };
     this.ghost = { type, x: prev ? prev.x : def.x, y: prev ? prev.y : def.y, angle: prev && prev.type === type ? prev.angle : 0 };
+    if (type === 'arrow' || type === 'bubble') this.ghost.angle = 0;
+    if (type === 'arrow') this.ghost.dir = prev && prev.type === 'arrow' ? prev.dir : -L.hollow.dir;
     if (this.phase === 'run') this.placementPaused = true;
     if (!this.headless) {
       if (this.ghostImg) this.ghostImg.destroy();
-      const key = type === 'crate' ? 'crate' : type === 'trampoline' ? 'trampoline' : 'plank_' + ITEMS[type].len;
+      const key = ['crate', 'trampoline', 'arrow', 'bubble'].includes(type) ? type : 'plank_' + ITEMS[type].len;
       this.ghostImg = this.add.image(0, 0, key).setDepth(39).setAlpha(0.9);
       if (type === 'crate') this.ghostImg.setDisplaySize(ITEMS.crate.size + 4, ITEMS.crate.size + 4);
+      else if (type === 'arrow') this.ghostImg.setDisplaySize(34, 48);
+      else if (type === 'bubble') this.ghostImg.setDisplaySize(ITEMS.bubble.r * 2 + 6, ITEMS.bubble.r * 2 + 6);
       else if (type === 'trampoline') this.ghostImg.setDisplaySize(70, 30).setOrigin(0.5, 9 / 30);
       else this.ghostImg.setDisplaySize(ITEMS[type].len + 6, ITEMS[type].thick + 6);
     }
@@ -286,7 +301,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   rotateGhost(deltaDeg) {
-    if (!this.ghost || this.ghost.type === 'crate') return;
+    if (!this.ghost || this.ghost.type === 'crate' || this.ghost.type === 'bubble') return;
+    if (this.ghost.type === 'arrow') { this.ghost.dir *= -1; this.refreshGhost(); return; }
     this.ghost.angle = Phaser.Math.Clamp(this.ghost.angle + deltaDeg, -80, 80);
     this.refreshGhost();
   }
@@ -304,7 +320,10 @@ export class GameScene extends Phaser.Scene {
     if (!g) return false;
     const ev = this.evaluate(g);
     if (!ev.valid || !this.canAfford(g.type)) { this.onEventCb('sfx', 'denied'); return false; }
-    this.placeItem({ type: g.type, x: g.x, y: g.y, angle: g.angle }, ev.pins);
+    const spec = { type: g.type, x: Math.round(g.x * 10) / 10, y: Math.round(g.y * 10) / 10, angle: g.angle };
+    if (g.type === 'arrow') spec.dir = g.dir;
+    this.lastPlaced = spec;
+    this.placeItem(spec, ev.pins);
     this.cancelPlacement();
     return true;
   }
@@ -328,6 +347,8 @@ export class GameScene extends Phaser.Scene {
     let obj;
     if (spec.type === 'crate') obj = createCrate(this, spec);
     else if (spec.type === 'trampoline') obj = createTrampoline(this, spec);
+    else if (spec.type === 'arrow') obj = createArrow(this, spec);
+    else if (spec.type === 'bubble') obj = createBubble(this, spec);
     else obj = createPlank(this, spec, pins);
     this.placed.push(obj);
     syncProp(obj);
@@ -412,6 +433,9 @@ export class GameScene extends Phaser.Scene {
     } else if (g.type === 'trampoline') {
       const pts = rectCorners(g.x, g.y, it.w - 6, it.h - 4, rad(g.angle)).concat([[g.x, g.y]]);
       if (pts.some(([x, y]) => inTerrain(x, y) || inCrate(x, y))) valid = false;
+    } else if (g.type === 'arrow' || g.type === 'bubble') {
+      if (inTerrain(g.x, g.y, 6) || inCrate(g.x, g.y)) valid = false;
+      if (this.placed.some((o) => o.kind === g.type && Math.hypot(o.body.position.x - g.x, o.body.position.y - g.y) < 24)) valid = false;
     }
     if (g.x < -10 || g.x > WORLD.w + 10 || g.y < 10 || g.y > WORLD.h + 30) valid = false;
     return { valid, pins };
@@ -426,6 +450,7 @@ export class GameScene extends Phaser.Scene {
       const gfx = this.ghostGfx;
       gfx.clear();
       this.ghostImg.setPosition(g.x, g.y).setRotation(rad(g.angle));
+      if (g.type === 'arrow') this.ghostImg.setFlipX(g.dir < 0);
       this.ghostImg.setTint(ev.valid ? 0xffffff : 0xff8a7d);
       const col = ev.valid ? 0x7fe3ff : 0xff6b5b;
       const lw = 1.6 / Math.max(0.5, this.zoom / (this.dpr() || 1));
@@ -444,15 +469,18 @@ export class GameScene extends Phaser.Scene {
             gfx.lineStyle(lw, 0xffffff, 0.7); gfx.strokeCircle(e.x, e.y, 8);
           }
         });
+      } else if (g.type === 'bubble') {
+        gfx.lineStyle(lw * 1.2, col, 0.9);
+        gfx.strokeCircle(g.x, g.y, it.r + 5);
       } else {
-        const w = g.type === 'crate' ? it.size + 10 : it.w + 10, h = g.type === 'crate' ? it.size + 10 : 26;
+        const w = g.type === 'arrow' ? it.w + 12 : g.type === 'crate' ? it.size + 10 : it.w + 10, h = g.type === 'arrow' ? it.h + 8 : g.type === 'crate' ? it.size + 10 : 26;
         const pts = rectCorners(g.x, g.y, w, h, rad(g.angle));
         gfx.lineStyle(lw * 1.2, col, 0.9);
         gfx.strokePoints(pts.map(([x, y]) => ({ x, y })), true);
       }
     }
     const pinned = ev.pins.map((p) => p.end);
-    this.onEventCb('placement', { active: true, type: g.type, valid: ev.valid, pinned, affordable: this.canAfford(g.type) });
+    this.onEventCb('placement', { active: true, type: g.type, valid: ev.valid, pinned, affordable: this.canAfford(g.type), dir: g.dir });
   }
 
   // ---------------------------------------------------------- забег
@@ -486,6 +514,7 @@ export class GameScene extends Phaser.Scene {
   renderFrame() {
     for (const s of this.squirrels) s.render();
     for (const o of this.placed) syncProp(o);
+    this.mech.render();
   }
 
   tick() {
@@ -524,8 +553,12 @@ export class GameScene extends Phaser.Scene {
       contacts.get(sq).push({ label, upN: { x: ux, y: uy }, other });
     }
 
+    this.mech.scanPairs(pairs);
     for (const [s, label, other] of events) {
       if (s.state !== 'walk') continue;
+      if (this.mech.onSensor(s, label, other)) continue;
+      if (label === 'arrow') { if (!s.hasNut && s.forceDir(other.plugin.obj.dir)) this.onEventCb('sfx', 'tick'); continue; }
+      if (label === 'bubble') { if (s.enterBubble()) this.onEventCb('sfx', 'boing'); continue; }
       if (label === 'tramp') { if (s.launch(other.plugin.obj.normal)) { this.bounces++; this.onEventCb('sfx', 'boing'); } }
       else if (label === 'spikes') this.loseSquirrel(s, 'spikes');
       else if (label === 'nuts' && !s.hasNut) { s.takeNut(); this.onEventCb('sfx', 'nut'); }
@@ -537,6 +570,7 @@ export class GameScene extends Phaser.Scene {
       if (s.y > WORLD.killY) { this.loseSquirrel(s, 'fall'); continue; }
       s.step(contacts.get(s.body) || []);
     }
+    this.mech.afterSquirrels(contacts);
     this.squirrels = this.squirrels.filter((s) => s.state === 'walk');
 
     this.matter.world.step(STEP_MS);
@@ -575,6 +609,7 @@ export class GameScene extends Phaser.Scene {
     s.state = 'lost';
     this.lastEventStep = this.runSteps;
     this.lost++;
+    this.lostBy[why] = (this.lostBy[why] || 0) + 1;
     this.onEventCb('sfx', 'lost');
     if (!this.headless && s.sprite) {
       const x = Phaser.Math.Clamp(s.x, 20, WORLD.w - 20), y = Math.min(s.y, WORLD.h - 10);
@@ -627,7 +662,7 @@ export class GameScene extends Phaser.Scene {
     const result = {
       win, reason, stars, saved: this.saved, lost: this.lost, goal: L.goal, total: L.squirrels,
       manaSpent: this.manaSpent, manaOk, timeSec, timeOk, timeMs: Math.round(timeSec * 1000),
-      itemsUsed: { ...this.itemsUsed }, bounces: this.bounces,
+      itemsUsed: { ...this.itemsUsed }, bounces: this.bounces, lostBy: { ...this.lostBy },
     };
     this.result = result;
     this.emitHud();
@@ -668,7 +703,7 @@ export class GameScene extends Phaser.Scene {
         this.trace.push({ t: +(n / 60).toFixed(1), s: this.squirrels.map((q) => [Math.round(q.x), Math.round(q.y), q.dir, q.hasNut ? 1 : 0, q.grounded ? 1 : 0]) });
       }
     }
-    const r = this.result || { error: 'не завершился за отведённое время', saved: this.saved, lost: this.lost };
+    const r = this.result || { error: 'не завершился за отведённое время', saved: this.saved, lost: this.lost, lostBy: this.lostBy };
     if (this.trace) r.trace = this.trace;
     return r;
   }

@@ -11,8 +11,8 @@
 import { GameScene } from '../src/scenes/GameScene.js';
 import { normalizeLevel } from '../src/levels/loader.js';
 
-const data = await (await fetch('../levels/levels.json')).json();
 const qs = new URLSearchParams(location.search);
+const data = await (await fetch(qs.get('src') || '../levels/levels.json', { cache: 'no-store' })).json();
 const only = qs.get('only') === 'all' ? null : qs.get('only');
 const traceEvery = Number(qs.get('trace') || 0);
 const levels = data.levels.map(normalizeLevel).filter((l) => !only || l.id === only);
@@ -43,7 +43,10 @@ const report = [];
 for (const l of levels) {
   const withSol = await runOne(l, l.solution || []);
   const without = qs.get('nosolo') ? { skipped: true } : await runOne(l, []);
-  report.push({ id: l.id, name: l.name, goal: l.goal, total: l.squirrels, solution: withSol, empty: without });
+  // Неверные решения из поля fails: каждое должно проигрывать.
+  const fails = [];
+  for (const f of (qs.get('nosolo') ? [] : l.fails || [])) fails.push(await runOne(l, f));
+  report.push({ id: l.id, name: l.name, goal: l.goal, total: l.squirrels, solution: withSol, empty: without, fails });
 }
 window.__report = report;
 document.getElementById('out').textContent = JSON.stringify(report, null, 2);
