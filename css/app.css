@@ -154,10 +154,10 @@ p{text-wrap:pretty}
 
 /* -------- игровой интерфейс -------- */
 .hud{position:absolute;top:calc(var(--sat) + 10px);left:calc(var(--sal) + 12px);right:calc(var(--sar) + 12px);display:flex;gap:8px;align-items:stretch}
-.hud .lvl{height:52px;border-radius:var(--r);padding:0 14px;display:flex;flex-direction:column;justify-content:center;min-width:0;max-width:44%}
+.hud .lvl{flex:1 1 auto;height:52px;border-radius:var(--r);padding:0 12px;display:flex;flex-direction:column;justify-content:center;min-width:0}
 .hud .lvl small{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);font-weight:800;white-space:nowrap}
-.hud .lvl b{font-family:var(--display);font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.hud .goal{flex:1;min-width:0;height:52px;border-radius:var(--r);padding:8px 14px 0;display:flex;flex-direction:column;gap:7px}
+.hud .lvl b{font-family:var(--display);font-weight:500;letter-spacing:-.01em;font-size:clamp(12px,3.6vw,14.5px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.hud .goal{flex:0 0 auto;width:clamp(124px,33vw,170px);height:52px;border-radius:var(--r);padding:8px 14px 0;display:flex;flex-direction:column;gap:7px}
 .hud .gl{display:flex;align-items:center;gap:8px;min-width:0}
 .hud .gl .sq{color:var(--amber)}
 .hud .gl b{font-family:var(--display);font-weight:700;font-size:16px;white-space:nowrap}
@@ -170,6 +170,7 @@ p{text-wrap:pretty}
 .chips{position:absolute;top:calc(var(--sat) + 70px);left:calc(var(--sal) + 12px);right:calc(var(--sar) + 12px);display:flex;gap:6px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:10px;font-weight:700;font-size:12.5px;color:#cfd6e4;white-space:nowrap}
 .chip b{font-family:var(--display);font-weight:700;color:#fff;font-size:12px}
+.chip.hint{white-space:normal;height:auto;min-height:30px;padding:6px 11px;line-height:1.35;text-wrap:balance}
 .chip .a{color:var(--amber)} .chip .g{color:var(--green)} .chip .r{color:#ff8a7d}
 
 .tray{position:absolute;left:calc(var(--sal) + 10px);right:calc(var(--sar) + 10px);bottom:calc(var(--sab) + 10px);border-radius:26px;padding:10px;background:rgba(13,17,27,.74);border:1px solid var(--line);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
@@ -241,7 +242,7 @@ p{text-wrap:pretty}
 .crit li span svg{flex:none}
 .crit li b{font-family:var(--display);font-weight:500;font-size:14px;white-space:nowrap}
 .crit li em{font-style:normal;display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:12.5px;font-weight:800;white-space:nowrap}
-.crit li em.y{color:var(--green)} .crit li em.n{color:#ff8a7d}
+.crit li em.y{color:var(--green)} .crit li em.n{color:#ff8a7d} .crit li em.m{color:var(--dim)}
 .reward{display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 14px;border-radius:14px;background:rgba(242,165,65,.1);border:1px solid rgba(242,165,65,.28);font-weight:800;font-size:14px;text-align:left;color:#ffe2b8}
 .reward svg{color:var(--amber)}
 .reward i{margin-left:auto;font-style:normal;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);white-space:nowrap}
@@ -268,3 +269,18 @@ input.confirm-input{width:100%;height:52px;margin-top:14px;border-radius:14px;bo
   .menu .art svg{max-height:220px}
 }
 #ui .pass > .placehint,#ui .pass > .chips,#ui .pass > .banner{pointer-events:none}
+
+@media (max-width:374px){
+  .mana .mt span{display:none}
+  .ctl .go{padding:0 14px}
+  .hud .goal{width:124px;padding:8px 10px 0}
+  .hud .tm{font-size:12px}
+}
+@media (max-width:359px){
+  .slot .nm{font-size:11.5px}
+  .hud .lvl small{letter-spacing:.1em}
+  .hud .lvl b{font-size:12px}
+  .hud .tm svg{display:none}
+  .crit li{grid-template-columns:minmax(0,1fr) auto auto;gap:8px;font-size:13px}
+  .crit li span svg{display:none}
+}

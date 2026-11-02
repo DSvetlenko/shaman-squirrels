@@ -11,7 +11,7 @@ export const ACHIEVEMENTS = [
   { id: 'saved_50', title: 'Полное дупло', desc: 'Верни домой 50 белок', progress: (s) => [s.stats.squirrelsSaved, 50] },
   { id: 'carpenter', title: 'Плотник', desc: 'Поставь 20 досок', progress: (s) => [s.stats.itemsPlaced.plank + s.stats.itemsPlaced.longPlank, 20] },
   { id: 'bouncy', title: 'Прыгучие', desc: 'Подбрось белок батутом 30 раз', progress: (s) => [s.stats.bounces || 0, 30] },
-  { id: 'all_or_nothing', title: 'Без права на ошибку', desc: 'Пройди уровень «Без права на ошибку»', check: (s) => isDone(s, 'w1-08') },
+  { id: 'all_or_nothing', title: 'Все до одного', desc: 'Пройди уровень «Все до одного»', check: (s) => isDone(s, 'w1-08') },
   { id: 'storm', title: 'Буря позади', desc: 'Пройди испытание «Буря»', check: (s) => isDone(s, 'w1-10') },
 ];
 

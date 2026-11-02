@@ -32,7 +32,13 @@ const app = {
   pendingReload: false,
   sessionStart: Date.now(),
 };
-window.__app = app; // для автотестов
+// Хуки для автотестов (tools/test-app.mjs).
+window.__app = app;
+window.__startLevel = (id) => startLevel(id);
+window.__isUnlocked = (id) => isUnlocked(app.save, app.levels, id);
+window.__exportText = () => exportText(app.save);
+window.__parseImport = (t) => parseImport(t);
+window.__persist = () => persist();
 
 // ------------------------------------------------------------------ запуск
 async function boot() {
@@ -281,7 +287,7 @@ function showStats() {
   <section class="screen dim">
     <div class="topbar">
       <button class="iconbtn glass" data-act="back" aria-label="Назад">${icon('chevron-left', 22)}</button>
-      <div class="t"><h2>Статистика и награды</h2></div>
+      <div class="t"><h2>Награды</h2></div>
     </div>
     <div class="scroll">
       <div class="stats">${tiles.map(([v, l]) => `<div class="stat glass"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>
@@ -554,6 +560,7 @@ function updateHud() {
       `<span class="chip glass">${icon('squirrel', 14, 'a')}в пути <b>${walking + h.inHollow}</b></span>`,
       `<span class="chip glass">${icon('nut', 14, 'a')}с орехом <b>${h.carrying}</b></span>`,
       h.lost ? `<span class="chip glass">${icon('x', 14, 'r')}потеряно <b>${h.lost}</b></span>` : '',
+      h.idleSec > 18 && h.saved < h.goal ? `<span class="chip glass hint">${icon('lightbulb', 14, 'a')}Белки застряли. Поставь предмет или начни заново</span>` : '',
     ].join('');
   } else chips.hidden = true;
   updateTray();
@@ -724,7 +731,8 @@ function onLevelEnd(r) {
   play(r.win ? 'win' : 'lose');
   const nextId = nextLevelId(app.levels, L.id);
   const star = (on) => `<span class="st ${on ? 'on' : ''}">${icon('star', 32)}</span>`;
-  const mark = (ok) => ok ? `<em class="y">${icon('check', 14)}` : `<em class="n">${icon('x', 14)}`;
+  // При поражении звёзды не выдаются, поэтому условия магии и времени показываем нейтрально.
+  const mark = (ok, neutral = false) => neutral ? '<em class="m">' : ok ? `<em class="y">${icon('check', 14)}` : `<em class="n">${icon('x', 14)}`;
   const manaGoal = L.stars.mana;
   const titles = r.win ? (r.stars === 3 ? 'Племя дома' : 'Уровень пройден') : (r.reason === 'time' ? 'Время вышло' : 'Не все вернулись');
   const lead = r.win ? '' : `<p class="lead">Нужно ${L.goal}, вернулось ${r.saved}. Попробуй по-другому расставить предметы.</p>`;
@@ -738,9 +746,9 @@ function onLevelEnd(r) {
       ${lead}
       <div class="stars-big">${star(r.stars >= 1)}${star(r.stars >= 2)}${star(r.stars >= 3)}</div>
       <ul class="crit">
-        <li><span>${icon('squirrel', 16)}Вернулись с орехом</span><b>${r.saved} / ${r.total}</b>${mark(r.saved >= L.goal)}цель ${L.goal}</em></li>
-        <li><span>${icon('sparkles', 16)}Потрачено магии</span><b>${r.manaSpent}</b>${mark(r.win && r.manaOk)}≤ ${manaGoal}</em></li>
-        <li><span>${icon('timer', 16)}Время до цели</span><b>${r.win ? fmtTime(r.timeSec) : '—'}</b>${mark(r.win && r.timeOk)}≤ ${fmtTime(L.stars.timeSec)}</em></li>
+        <li><span>${icon('squirrel', 16)}Вернулись домой</span><b>${r.saved} / ${r.total}</b>${mark(r.saved >= L.goal)}цель ${L.goal}</em></li>
+        <li><span>${icon('sparkles', 16)}Потрачено магии</span><b>${r.manaSpent}</b>${mark(r.manaOk, !r.win)}≤ ${manaGoal}</em></li>
+        <li><span>${icon('timer', 16)}Время до цели</span><b>${r.win ? fmtTime(r.timeSec) : '—'}</b>${mark(r.timeOk, !r.win)}≤ ${fmtTime(L.stars.timeSec)}</em></li>
       </ul>
       ${reward}${ach}
       <div class="btns two">

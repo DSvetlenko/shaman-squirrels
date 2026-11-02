@@ -619,6 +619,7 @@ export class GameScene extends Phaser.Scene {
       mana: this.mana, manaMax: L.mana, items: { ...this.items }, timeSec: this.runSteps / 60,
       timeLimit: L.timeLimit || 150, canUndo: this.phase === 'build' && this.undoStack.length > 0,
       canFinish: this.phase === 'run' && this.saved >= L.goal,
+      idleSec: (this.runSteps - this.lastEventStep) / 60,
     };
   }
 
