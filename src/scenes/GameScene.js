@@ -227,10 +227,28 @@ export class GameScene extends Phaser.Scene {
     this.dragging = null;
     this.input.on('pointerdown', (p) => {
       if (!this.ghost) return;
-      this.dragging = { x: p.x, y: p.y, id: p.id };
+      // Касание у конца доски или батута — поворот, в остальных местах — перенос.
+      const g = this.ghost;
+      let rotate = false;
+      if (g.type !== 'crate') {
+        const half = g.type === 'trampoline' ? ITEMS.trampoline.w / 2 : ITEMS[g.type].len / 2;
+        const ends = plankEnds(g.x, g.y, g.angle, half * 2);
+        const w = p.positionToCamera(this.cameras.main);
+        rotate = ends.some((e) => Math.hypot(e.x - w.x, e.y - w.y) < 26);
+      }
+      this.dragging = { x: p.x, y: p.y, id: p.id, rotate };
     });
     this.input.on('pointermove', (p) => {
       if (!this.ghost || !this.dragging || this.dragging.id !== p.id || !p.isDown) return;
+      if (this.dragging.rotate) {
+        const w = p.positionToCamera(this.cameras.main);
+        let a = Math.atan2(w.y - this.ghost.y, w.x - this.ghost.x) * 180 / Math.PI;
+        if (a > 90) a -= 180;
+        if (a < -90) a += 180;
+        const step = Math.round(Phaser.Math.Clamp(a, -80, 80));
+        if (step !== this.ghost.angle) { this.ghost.angle = step; this.refreshGhost(); }
+        return;
+      }
       const dx = (p.x - this.dragging.x) / this.zoom, dy = (p.y - this.dragging.y) / this.zoom;
       this.dragging.x = p.x; this.dragging.y = p.y;
       this.ghost.x = Phaser.Math.Clamp(this.ghost.x + dx, -30, WORLD.w + 30);

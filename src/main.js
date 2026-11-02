@@ -801,34 +801,19 @@ function updateTray() {
     release: () => { hideTips(); app.scene && app.scene.release(); },
     speed: () => { app.speed2x = !app.speed2x; app.scene && app.scene.setSpeed(app.speed2x ? 2 : 1); updateTray(); },
     finish: () => { app.scene && app.scene.finishEarly(); },
-    pcancel: () => { stopRotate(); play('back'); app.scene && app.scene.cancelPlacement(); },
-    pok: () => { stopRotate(); app.scene && app.scene.confirmPlacement(); },
+    pcancel: () => { play('back'); app.scene && app.scene.cancelPlacement(); },
+    pok: () => { app.scene && app.scene.confirmPlacement(); },
   });
+  // Поворот — только по нажатию, без таймеров автоповтора: на iPhone они могли
+  // «залипать». Плавно крутить можно, потянув за кольцо на конце доски.
   ctl.querySelectorAll('[data-hold]').forEach((b) => {
     const dir = Number(b.dataset.hold);
-    b.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      stopRotate();
+    b.addEventListener('click', () => {
       play('tick');
       app.scene && app.scene.rotateGhost(dir * ROTATE_STEP);
-      rot.t1 = setTimeout(() => {
-        rot.t2 = setInterval(() => {
-          // Страховка: поворот только пока палец на кнопке и идёт установка.
-          if (!app.placement || !b.isConnected) return stopRotate();
-          play('tick', { vol: 0.5 });
-          app.scene && app.scene.rotateGhost(dir * ROTATE_STEP / 2);
-        }, 70);
-      }, 350);
     });
-    ['pointerup', 'pointerleave', 'pointercancel', 'lostpointercapture'].forEach((ev) => b.addEventListener(ev, stopRotate));
   });
 }
-
-// Удержание кнопки поворота. Останавливается при любом отпускании пальца на экране.
-const rot = { t1: null, t2: null };
-function stopRotate() { clearTimeout(rot.t1); clearInterval(rot.t2); rot.t1 = rot.t2 = null; }
-['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'blur'].forEach((ev) => window.addEventListener(ev, stopRotate, { capture: true }));
-document.addEventListener('visibilitychange', stopRotate);
 
 function setPlaceHint(html) {
   let el = $ui.querySelector('.placehint');
