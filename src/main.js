@@ -10,7 +10,7 @@ import { icon } from './ui/icons.js';
 import { encodeTransfer, decodeTransfer, looksLikeTransfer, mergeSaves, summary } from './save/transfer.js';
 import { startScanner } from './ui/scanner.js';
 import qrcode from '../vendor/qrcode.mjs';
-import { getItemArt, menuArtSVG } from './ui/art.js';
+import { getItemArt, menuArtSVG, getShamanArt } from './ui/art.js';
 import { unlockAudio, play, configureAudio, setMusic, duckMusic, suspendAudio, resumeAudio, audioState } from './core/audio.js';
 import {
   ACHIEVEMENTS, achievementState, totalStars, isUnlocked, nextLevelId, continueLevel,
@@ -241,7 +241,7 @@ function showMenu() {
   <section class="screen menu dim">
     <div class="hero">
       <span class="eyebrow">${esc(worldOf(cont).name)}</span>
-      <h1 class="title-xl">Шаман</h1>
+      <h1 class="title-xl">Побег Белок</h1>
       <p>Белкам нужны орехи с соседних островов. Построй путь над пропастью и верни племя домой.</p>
     </div>
     <div class="art">${menuArtSVG()}</div>
@@ -464,11 +464,11 @@ function showSettings(from) {
 async function doExport() {
   await persist();
   const text = exportText(app.save);
-  const name = `shaman-save-${new Date().toISOString().slice(0, 10)}.json`;
+  const name = `pobeg-belok-save-${new Date().toISOString().slice(0, 10)}.json`;
   try {
     const file = new File([text], name, { type: 'application/json' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Сохранение «Шаман»' });
+      await navigator.share({ files: [file], title: 'Сохранение «Побег Белок»' });
       toast('Копия сохранена');
       return;
     }
@@ -728,7 +728,8 @@ function renderGameUI() {
     </div>
     <div class="chips" hidden></div>
     <div class="tipwrap"></div>
-    <div class="tray">
+    <div class="tray${ITEM_ORDER.filter((k) => L.items[k]).length > 3 ? ' full' : ''}">
+      <img class="shaman" src="${getShamanArt()}" alt="" aria-hidden="true">
       <div class="slots">${slots}</div>
       <div class="ctl"></div>
     </div>

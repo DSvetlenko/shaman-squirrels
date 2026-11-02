@@ -1,8 +1,8 @@
 {
   "name": "shaman-squirrels",
   "private": true,
-  "version": "0.4.0",
-  "description": "Мобильная PWA-игра: шаман строит мосты для белок над пропастью",
+  "version": "0.4.1",
+  "description": "Мобильная PWA-игра «Побег Белок»: белка-колдун строит мосты для белок над пропастью",
   "type": "module",
   "scripts": {
     "start": "node tools/serve.mjs 8080",

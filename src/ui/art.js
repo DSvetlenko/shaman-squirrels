@@ -1,5 +1,5 @@
 // Готовые картинки для интерфейса (лоток предметов, главное меню).
-import { plankSVG, crateSVG, trampolineSVG, islandArt, stumpSVG, nutPileSVG, squirrelSVG, STUMP } from '../art/svg.js';
+import { plankSVG, crateSVG, trampolineSVG, islandArt, stumpSVG, nutPileSVG, squirrelSVG, shamanSVG, STUMP } from '../art/svg.js';
 import { ITEMS } from '../config.js';
 
 const uri = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -37,4 +37,10 @@ export function menuArtSVG() {
   o += `<g transform="translate(205,186) rotate(${ang.toFixed(1)})">${img(sqb, -20, -33, 40, 35)}</g>`;
   o += `<g transform="translate(300,200) scale(-1,1)">${img(sq, -20, -33, 40, 35)}</g>`;
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${o}</svg>`;
+}
+
+let shamanArt = null;
+export function getShamanArt() {
+  if (!shamanArt) shamanArt = uri(shamanSVG());
+  return shamanArt;
 }

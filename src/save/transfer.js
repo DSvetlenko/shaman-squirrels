@@ -63,7 +63,7 @@ export function looksLikeTransfer(text) {
 
 export async function decodeTransfer(text) {
   const t = text.trim().replace(/\s+/g, '');
-  if (!t.startsWith(PREFIX)) throw new Error('Это не код прогресса «Шамана»');
+  if (!t.startsWith(PREFIX)) throw new Error('Это не код прогресса «Побега Белок»');
   const kind = t[PREFIX.length];
   const bytes = fromB64url(t.slice(PREFIX.length + 1));
   let json;

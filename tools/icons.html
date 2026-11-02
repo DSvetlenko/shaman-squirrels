@@ -35,7 +35,7 @@ if (kind === 'icon' || kind === 'maskable') {
   const m = Math.min(w, h);
   const unit = m / (m >= 1400 ? 760 : 390);   // на планшетах — спокойнее, не во весь экран
   const artW = Math.min(w * 0.92, 420 * unit);
-  c.innerHTML = `<h1 style="font-size:${40 * unit}px">Шаман</h1>
+  c.innerHTML = `<h1 style="font-size:${40 * unit}px">Побег Белок</h1>
     <p style="font-size:${15 * unit}px;margin-top:${10 * unit}px">белки над пропастью</p>
     <div style="width:${artW}px;height:${artW * 0.82}px;margin-top:${30 * unit}px">${menuArtSVG().replace('<svg ', '<svg width="100%" height="100%" ')}</div>`;
 }

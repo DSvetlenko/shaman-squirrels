@@ -353,3 +353,75 @@ export function portalSVG(color = '#7fe3ff', inner = '#2d5a8c') {
   <path d="M20 8 l2 5 l-2 4 l-2 -4 Z M20 52 l2 -5 l-2 -4 l-2 4 Z" fill="#ffffff" opacity=".85"/>`;
   return svgDoc(40, 60, body, `<radialGradient id="pin" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset=".35" stop-color="${color}" stop-opacity=".7"/><stop offset="1" stop-color="${inner}" stop-opacity=".95"/></radialGradient>`);
 }
+
+// ---------------------------------------------------------------- белка-колдун
+// Игрок: сидит в углу экрана с посохом и строит путь для племени. viewBox 100×120.
+export function shamanSVG() {
+  const O = OUTLINE;
+  const defs = `
+  <radialGradient id="sg" cx="50%" cy="50%" r="50%">
+    <stop offset="0" stop-color="#fff6c9"/><stop offset=".35" stop-color="#ffd36b" stop-opacity=".9"/>
+    <stop offset="1" stop-color="#ffb347" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="sr" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#4a3f7a"/><stop offset="1" stop-color="#2c2550"/>
+  </linearGradient>
+  <linearGradient id="sh" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#5a4c92"/><stop offset="1" stop-color="#2f2858"/>
+  </linearGradient>`;
+  const body = `
+<g stroke="${O}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+  <!-- хвост -->
+  <path d="M34 104 C12 106 2 90 4 70 C6 50 16 36 30 38 C42 40 42 56 33 58 C27 59 25 52 29 50 C22 50 18 60 19 72 C20 86 30 94 40 96 Z" fill="#b8541f"/>
+  <path d="M10 72 C10 58 16 47 26 44" fill="none" stroke="#e99a5e" stroke-width="2.6" opacity=".85"/>
+  <!-- мантия -->
+  <path d="M30 108 C28 92 32 72 44 64 L66 64 C76 72 80 92 78 108 Z" fill="url(#sr)"/>
+  <path d="M54 66 L54 108" fill="none" stroke="#1d1838" stroke-width="1.4"/>
+  <path d="M30 108 L78 108" fill="none"/>
+  <!-- лапки -->
+  <ellipse cx="44" cy="109" rx="8" ry="4.2" fill="#b8541f"/>
+  <ellipse cx="65" cy="109" rx="8" ry="4.2" fill="#b8541f"/>
+  <!-- посох -->
+  <path d="M83 112 C82 94 84 74 82 52 C81 44 84 38 88 34" fill="none" stroke="${O}" stroke-width="6"/>
+  <path d="M83 112 C82 94 84 74 82 52 C81 44 84 38 88 34" fill="none" stroke="#8a5a2c" stroke-width="3.4"/>
+  <path d="M88 34 C92 30 92 24 88 22 C85 21 83 24 85 26" fill="none" stroke="${O}" stroke-width="5"/>
+  <path d="M88 34 C92 30 92 24 88 22 C85 21 83 24 85 26" fill="none" stroke="#8a5a2c" stroke-width="2.6"/>
+</g>
+<circle cx="86" cy="27" r="15" fill="url(#sg)"/>
+<g stroke="${O}" stroke-width="1.5" stroke-linejoin="round">
+  <path d="M86 21 L90 27 L86 33 L82 27 Z" fill="#ffe08a"/>
+  <path d="M86 21 L86 33 M82 27 L90 27" stroke="#f4a94a" stroke-width=".9" fill="none"/>
+</g>
+<g stroke="${O}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+  <!-- лапа на посохе -->
+  <path d="M66 76 C72 74 78 72 82 70" fill="none" stroke="url(#sr)" stroke-width="9"/>
+  <path d="M66 71.5 C72 69.5 78 67.5 81 66 M67 80.5 C73 78.5 79 76.5 83 74.5" fill="none"/>
+  <circle cx="83" cy="70" r="4.6" fill="#d8722e"/>
+  <!-- голова -->
+  <path d="M38 50 C36 38 44 30 55 30 C66 30 73 38 71 49 C70 58 62 64 54 64 C45 64 39 58 38 50 Z" fill="#d8722e"/>
+  <path d="M50 56 C52 61 60 62 64 57 C62 54 52 53 50 56 Z" fill="#f2d2a6" stroke="none"/>
+  <ellipse cx="68" cy="49" rx="5.2" ry="4" fill="#e99a5e"/>
+</g>
+<circle cx="72.6" cy="48" r="1.7" fill="${O}"/>
+<circle cx="61" cy="44" r="2.5" fill="#1a0f08"/><circle cx="61.8" cy="43.2" r=".8" fill="#fff"/>
+<circle cx="49" cy="44" r="2.2" fill="#1a0f08"/><circle cx="49.7" cy="43.3" r=".7" fill="#fff"/>
+<path d="M45 52 L40 51 M45 54.5 L40 55.5" stroke="${O}" stroke-width=".9" opacity=".6"/>
+<!-- ожерелье: бусины и жёлудь -->
+<path d="M44 64 C48 70 60 70 66 64" fill="none" stroke="#e8d3a2" stroke-width="1.2"/>
+<circle cx="47" cy="67" r="1.6" fill="#7fe3ff" stroke="${O}" stroke-width=".8"/>
+<circle cx="63" cy="67" r="1.6" fill="#7fe3ff" stroke="${O}" stroke-width=".8"/>
+<g stroke="${O}" stroke-width=".9"><path d="M55 76 C52 75 51 72 51.5 70 L58.5 70 C59 72 58 75 55 76 Z" fill="#d79a5a"/>
+<path d="M50.5 70 C50.5 68 52.5 67 55 67 C57.5 67 59.5 68 59.5 70 Z" fill="#7a4b2a"/></g>
+<g stroke="${O}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+  <!-- шляпа -->
+  <path d="M33 37 C40 31 70 29 77 36 C72 40 40 42 33 37 Z" fill="url(#sh)"/>
+  <path d="M40 35 C42 24 46 14 52 8 C56 4 62 2 66 4 C62 6 60 10 60 16 C60 24 64 30 68 34 C60 37 48 37 40 35 Z" fill="url(#sh)"/>
+  <path d="M41.5 31 C50 33 60 33 66.5 30.5 L68 34 C60 37 48 37 40 35 Z" fill="#c9783a"/>
+  <!-- ухо сквозь шляпу -->
+  <path d="M45 30 L43 21 L51 27" fill="#b8541f"/>
+</g>
+<path d="M56 18 l1.2 2.6 2.8.3 -2.1 1.9 .6 2.8 -2.5-1.4 -2.5 1.4 .6-2.8 -2.1-1.9 2.8-.3 Z" fill="#ffe08a" opacity=".95"/>
+<circle cx="50" cy="24" r="1" fill="#ffe08a" opacity=".8"/><circle cx="62" cy="11" r=".9" fill="#ffe08a" opacity=".8"/>
+<circle cx="92" cy="12" r="1.3" fill="#fff3c0" opacity=".9"/><circle cx="74" cy="20" r="1" fill="#fff3c0" opacity=".8"/>`;
+  return svgDoc(100, 120, body, defs);
+}
