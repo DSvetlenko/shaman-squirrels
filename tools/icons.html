@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Unbounded;src:url(../assets/fonts/unbounded-cyrillic-700-normal.woff2);font-weight:700;unicode-range:U+0400-04FF}
+@font-face{font-family:Manrope;src:url(../assets/fonts/manrope-cyrillic-600-normal.woff2);font-weight:600;unicode-range:U+0400-04FF}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000}
+#c{position:relative;overflow:hidden}
+.icon{background:radial-gradient(circle at 70% 78%,#ffd59a 0,#f2c79a 14%,rgba(201,143,122,0) 46%),linear-gradient(180deg,#1b2a48 0%,#2f4d72 45%,#c98f7a 100%)}
+.splash{background:linear-gradient(180deg,#14203a 0%,#2f4d72 50%,#c98f7a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.splash h1{font-family:Unbounded;font-weight:700;color:#f3efe8;letter-spacing:.02em}
+.splash p{font-family:Manrope;font-weight:600;color:#cfd6e4}
+</style></head>
+<body><div id="c"></div>
+<script type="module">
+import { squirrelSVG, nutSVG, islandArt } from '../src/art/svg.js';
+import { menuArtSVG } from '../src/ui/art.js';
+const q = new URLSearchParams(location.search);
+const kind = q.get('kind'), w = +q.get('w'), h = +q.get('h');
+const c = document.getElementById('c');
+c.style.width = w + 'px'; c.style.height = h + 'px';
+const uri = (s) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+if (kind === 'icon' || kind === 'maskable') {
+  c.className = 'icon';
+  const s = kind === 'maskable' ? 0.62 : 0.78;      // у maskable — безопасная зона
+  const isl = islandArt({ x: 10, y: 70, w: 140, depth: 70, seed: 7 });
+  const S = w * s;
+  c.innerHTML = `<svg viewBox="0 0 160 160" width="${S}" height="${S}" style="position:absolute;left:${(w - S) / 2}px;top:${(h - S) / 2 + w * 0.02}px">
+    <image href="${uri(isl.svg)}" x="${isl.rect.x}" y="${isl.rect.y + 22}" width="${isl.rect.w}" height="${isl.rect.h}"/>
+    <image href="${uri(squirrelSVG('A'))}" x="22" y="4" width="112" height="98"/>
+    <image href="${uri(nutSVG())}" x="119" y="57" width="17" height="21"/>
+  </svg>`;
+} else {
+  c.className = 'splash';
+  const unit = w / 390;
+  c.innerHTML = `<h1 style="font-size:${40 * unit}px">Шаман</h1>
+    <p style="font-size:${15 * unit}px;margin-top:${10 * unit}px">белки над пропастью</p>
+    <div style="width:${w * 0.92}px;height:${w * 0.76}px;margin-top:${30 * unit}px">${menuArtSVG().replace('<svg ', '<svg width="100%" height="100%" ')}</div>`;
+}
+await document.fonts.ready;
+await new Promise((r) => setTimeout(r, 400));
+window.__done = true;
+</script></body></html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Проверка уровней</title></head>
+<body>
+<pre id="out">Проверка…</pre>
+<script src="../vendor/phaser.min.js"></script>
+<script type="module">
+// Прогоняет каждый уровень без графики:
+// 1) с эталонным решением — уровень должен быть пройден;
+// 2) без предметов — уровень не должен проходиться сам собой.
+import { GameScene } from '../src/scenes/GameScene.js';
+import { normalizeLevel } from '../src/levels/loader.js';
+
+const data = await (await fetch('../levels/levels.json')).json();
+const qs = new URLSearchParams(location.search);
+const only = qs.get('only') === 'all' ? null : qs.get('only');
+const traceEvery = Number(qs.get('trace') || 0);
+const levels = data.levels.map(normalizeLevel).filter((l) => !only || l.id === only);
+
+function runOne(level, solution) {
+  return new Promise((resolve) => {
+    const game = new Phaser.Game({
+      type: Phaser.HEADLESS, width: 400, height: 520, banner: false, audio: { noAudio: true },
+      physics: { default: 'matter', matter: { gravity: { y: 1 }, autoUpdate: false } },
+      scene: [],
+    });
+    game.events.once('ready', () => {
+      game.scene.add('game', GameScene, true, {
+        level, headless: true,
+        onEvent: (name) => {
+          if (name !== 'ready') return;
+          const sc = game.scene.getScene('game');
+          const r = sc.runSolution(solution, 60 * 200, traceEvery);
+          game.destroy(true);
+          resolve(r);
+        },
+      });
+    });
+  });
+}
+
+const report = [];
+for (const l of levels) {
+  const withSol = await runOne(l, l.solution || []);
+  const without = qs.get('nosolo') ? { skipped: true } : await runOne(l, []);
+  report.push({ id: l.id, name: l.name, goal: l.goal, total: l.squirrels, solution: withSol, empty: without });
+}
+window.__report = report;
+document.getElementById('out').textContent = JSON.stringify(report, null, 2);
+</script>
+</body>
+</html>

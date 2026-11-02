@@ -1,0 +1,16 @@
+click <- ./kenney-interface-sounds/addons/kenney_interface_sounds/click_002.wav
+select <- ./kenney-interface-sounds/addons/kenney_interface_sounds/select_002.wav
+back <- ./kenney-interface-sounds/addons/kenney_interface_sounds/back_002.wav
+place <- ./kenney-impact-sounds-for-godot/addons/kenney impact sounds/impact_wood_medium_002.ogg
+pin <- ./kenney-rpg-audio-for-godot/addons/kenney rpg audio/metal_click.ogg
+creak <- ./kenney-rpg-audio-for-godot/addons/kenney rpg audio/creak_2.ogg
+crate <- ./kenney-impact-sounds-for-godot/addons/kenney impact sounds/impact_soft_medium_001.ogg
+boing <- ./kenney-digital-audio-for-godot/addons/kenney digital audio/pep_sound_3.ogg
+release <- ./kenney-digital-audio-for-godot/addons/kenney digital audio/phaser_up_3.ogg
+saved <- ./kenney-interface-sounds/addons/kenney_interface_sounds/pluck_002.wav
+nut <- ./kenney-rpg-audio-for-godot/addons/kenney rpg audio/handle_coins.ogg
+lost <- ./kenney-digital-audio-for-godot/addons/kenney digital audio/low_down.ogg
+denied <- ./kenney-interface-sounds/addons/kenney_interface_sounds/error_004.wav
+win <- ./kenney-music-jingles-for-godot/addons/kenney music jingles/Pizzicato jingles/jingles_pizzi_2.ogg
+lose <- ./kenney-music-jingles-for-godot/addons/kenney music jingles/Pizzicato jingles/jingles_pizzi_1.ogg
+star <- ./kenney-interface-sounds/addons/kenney_interface_sounds/confirmation_002.wav
