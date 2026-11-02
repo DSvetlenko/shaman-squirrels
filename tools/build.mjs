@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const INCLUDE = ['index.html', 'manifest.json', 'css', 'src', 'levels', 'vendor/phaser.min.js', 'assets'];
+const INCLUDE = ['index.html', 'manifest.json', 'css', 'src', 'levels', 'vendor/phaser.min.js', 'vendor/jsQR.min.js', 'vendor/qrcode.mjs', 'assets'];
 const files = [];
 
 function walk(rel) {
@@ -17,7 +17,8 @@ function walk(rel) {
   const st = fs.statSync(abs);
   if (st.isDirectory()) {
     for (const f of fs.readdirSync(abs).sort()) walk(path.posix.join(rel, f));
-  } else if (!/(^|\/)\.|\.md$/.test(rel)) {
+  // Заставки iOS берёт сам при установке на экран «Домой», в офлайн-кэш их не кладём.
+  } else if (!/(^|\/)\.|\.md$/.test(rel) && !rel.startsWith('assets/splash/')) {
     files.push(rel);
   }
 }

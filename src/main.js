@@ -7,6 +7,9 @@ import { loadLevels } from './levels/loader.js';
 import { GameScene } from './scenes/GameScene.js';
 import { backgroundSVG } from './art/svg.js';
 import { icon } from './ui/icons.js';
+import { encodeTransfer, decodeTransfer, looksLikeTransfer, mergeSaves, summary } from './save/transfer.js';
+import { startScanner } from './ui/scanner.js';
+import qrcode from '../vendor/qrcode.mjs';
 import { getItemArt, menuArtSVG } from './ui/art.js';
 import { unlockAudio, play, setSoundEnabled, suspendAudio, resumeAudio } from './core/audio.js';
 import {
@@ -43,6 +46,7 @@ window.__persist = () => persist();
 // ------------------------------------------------------------------ запуск
 async function boot() {
   document.getElementById('bg').innerHTML = backgroundSVG();
+  applyFormFactor();
   setupGlobalGuards();
   try {
     const [save, lv] = await Promise.all([loadSave(), loadLevels()]);
@@ -131,6 +135,7 @@ function initPhaser() {
 }
 
 function resizeGame() {
+  applyFormFactor();
   if (!app.game || !app.game.canvas) return;
   const { w, h } = viewport();
   const d = dpr();
@@ -139,16 +144,37 @@ function resizeGame() {
   app.game.canvas.style.width = w + 'px';
   app.game.canvas.style.height = h + 'px';
   app.game.scale.refresh();
-  if (app.scene && app.scene.ready) app.scene.applyLayout(measureInsets());
+  if (app.scene && app.scene.ready) {
+    // Дать браузеру применить новую раскладку панелей, затем вписать поле.
+    requestAnimationFrame(() => app.scene && app.scene.ready && app.scene.applyLayout(measureInsets()));
+  }
+  const hint = $ui.querySelector('.placehint');
+  if (hint) setPlaceHint(hint.innerHTML);
 }
 
+// Свободная для поля область: всё, что не занято шапкой и лотком.
+// В альбомной ориентации на планшете лоток — боковая панель справа.
 function measureInsets() {
   const hud = $ui.querySelector('.hud');
   const tray = $ui.querySelector('.tray');
-  const vh = viewport().h;
-  const top = hud ? hud.getBoundingClientRect().bottom + 10 : 110;
-  const bottom = tray ? vh - tray.getBoundingClientRect().top + 8 : 220;
-  return { top, bottom };
+  const { w: vw, h: vh } = viewport();
+  const top = hud ? hud.getBoundingClientRect().bottom + 12 : 110;
+  if (tray && document.body.classList.contains('side-panel')) {
+    const r = tray.getBoundingClientRect();
+    return { top, bottom: 16, left: 16, right: vw - r.left + 16 };
+  }
+  const bottom = tray ? vh - tray.getBoundingClientRect().top + 10 : 220;
+  return { top, bottom, left: 0, right: 0 };
+}
+
+// Режим экрана: телефон, планшет, планшет боком (с боковой панелью).
+function applyFormFactor() {
+  const { w, h } = viewport();
+  const tablet = Math.min(w, h) >= 600;
+  const b = document.body.classList;
+  b.toggle('tablet', tablet);
+  b.toggle('landscape', w > h);
+  b.toggle('side-panel', tablet && w > h * 1.08);
 }
 
 // ------------------------------------------------------------------ экраны
@@ -318,11 +344,17 @@ function showSettings(from) {
         <button class="row rowbtn" data-act="t-speed"><span class="lbl"><b>Быстрый забег</b><small>Белки бегут вдвое быстрее по умолчанию</small></span>${sw(st.speed2x)}</button>
       </div>
       <div class="card glass">
+        <h3>Перенос между устройствами</h3>
+        <p class="note">Играешь на телефоне и планшете? Покажи QR-код на одном устройстве и отсканируй его в игре на другом. Прогресс объединится: по каждому уровню останется лучший результат.</p>
+        <button class="row rowbtn" data-act="qr-show"><span class="lbl"><b>Показать QR-код</b><small>Для другого устройства</small></span>${icon('qr-code', 20)}</button>
+        <button class="row rowbtn" data-act="qr-scan"><span class="lbl"><b>Сканировать QR-код</b><small>Забрать прогресс с другого устройства</small></span>${icon('scan-line', 20)}</button>
+      </div>
+      <div class="card glass">
         <h3>Сохранения</h3>
         <p class="note">Прогресс хранится только на этом устройстве и сохраняется сам после каждого уровня. Обновления игры его не стирают. Если давно не открывать игру, Safari может очистить данные сайта, поэтому иногда сохраняй копию.</p>
         <button class="row rowbtn" data-act="export"><span class="lbl"><b>Сохранить копию</b><small>Файл JSON с прогрессом, можно положить в «Файлы»</small></span>${icon('download', 20)}</button>
         <button class="row rowbtn" data-act="import"><span class="lbl"><b>Загрузить из файла</b><small>Восстановить прогресс из копии</small></span>${icon('upload', 20)}</button>
-        <button class="row rowbtn" data-act="paste"><span class="lbl"><b>Вставить текстом</b><small>Если копия лежит в заметках или сообщении</small></span>${icon('clipboard-paste', 20)}</button>
+        <button class="row rowbtn" data-act="paste"><span class="lbl"><b>Вставить текстом</b><small>Копия или код переноса из заметок или сообщения</small></span>${icon('clipboard-paste', 20)}</button>
         <button class="row rowbtn" data-act="reset"><span class="lbl"><b style="color:#ffb4a9">Сбросить прогресс</b><small>Удалить уровни, звёзды и статистику</small></span>${icon('trash-2', 20)}</button>
         <input type="file" accept="application/json,.json,text/plain" hidden id="importFile">
       </div>
@@ -343,6 +375,8 @@ function showSettings(from) {
     export: () => doExport(),
     import: () => $ui.querySelector('#importFile').click(),
     paste: () => openPaste(from),
+    'qr-show': () => openQRShow(from),
+    'qr-scan': () => openQRScan(from),
     reset: () => openReset(from),
   });
   $ui.querySelector('#importFile').addEventListener('change', async (e) => {
@@ -404,11 +438,97 @@ function openPaste(from) {
     <textarea class="paste" placeholder="{ &quot;format&quot;: &quot;shaman-squirrels-export&quot; … }"></textarea>
     <div class="btns two"><button class="btn secondary" data-act="no">Отмена</button><button class="btn primary" data-act="yes">Загрузить</button></div>`, {
     no: () => closeModal(),
-    yes: () => {
+    yes: async () => {
       const t = $ui.querySelector('textarea.paste').value.trim();
-      try { const d = parseImport(t); closeModal(); applyImported(d, from); } catch (e) { toast(e.message || 'Текст не похож на копию'); play('denied'); }
+      try {
+        if (looksLikeTransfer(t)) { const d = await decodeTransfer(t); closeModal(); confirmMerge(d, from); return; }
+        const d = parseImport(t); closeModal(); applyImported(d, from);
+      } catch (e) { toast(e.message || 'Текст не похож на копию'); play('denied'); }
     },
   });
+}
+
+// ------------------------------------------------------------------ перенос по QR
+async function openQRShow(from) {
+  await persist();
+  const code = await encodeTransfer(app.save);
+  let svg = '';
+  try {
+    const qr = qrcode(0, code.length > 1400 ? 'L' : 'M');
+    qr.addData(code, 'Byte');
+    qr.make();
+    svg = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  } catch {
+    svg = '';
+  }
+  const s = summary(app.save);
+  modal(`
+    <span class="eyebrow">Перенос прогресса</span>
+    <h2>QR-код прогресса</h2>
+    <p class="lead">На другом устройстве открой игру: Настройки → «Сканировать QR-код».</p>
+    ${svg ? `<div class="qrbox">${svg}</div>` : '<p class="lead">Прогресс слишком большой для одного QR-кода. Скопируй код и вставь его на другом устройстве.</p>'}
+    <p class="qrmeta">Пройдено уровней: ${s.done} · звёзд: ${s.stars}</p>
+    <div class="btns two"><button class="btn secondary" data-act="copy">${icon('copy', 18)}Скопировать код</button><button class="btn primary" data-act="ok">Готово</button></div>`, {
+    ok: () => closeModal(),
+    copy: async () => {
+      try { await navigator.clipboard.writeText(code); toast('Код скопирован. Вставь его на другом устройстве: Настройки → «Вставить текстом»'); }
+      catch { toast('Не удалось скопировать'); }
+    },
+  }, { center: true });
+}
+
+function openQRScan(from) {
+  let stop = null;
+  const m = modal(`
+    <span class="eyebrow">Перенос прогресса</span>
+    <h2>Наведи камеру на QR-код</h2>
+    <div class="scanbox"><video playsinline muted></video><span class="frame"></span><p class="scanstate">Включаю камеру…</p></div>
+    <div class="btns"><button class="btn secondary block" data-act="no">Отмена</button></div>`, {
+    no: () => { if (stop) stop(); closeModal(); },
+  }, { center: true });
+  const video = m.querySelector('video');
+  const state = m.querySelector('.scanstate');
+  startScanner(video, async (text) => {
+    play('star');
+    try { const d = await decodeTransfer(text); closeModal(); confirmMerge(d, from); }
+    catch (e) { closeModal(); toast(e.message || 'Не удалось прочитать код'); play('denied'); }
+  }, (text) => looksLikeTransfer(text)).then((fn) => {
+    stop = fn;
+    state.textContent = 'Ищу QR-код игры…';
+    if (!m.isConnected) fn();
+  }).catch((e) => {
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    state.textContent = denied
+      ? 'Нет доступа к камере. Разреши его в настройках телефона или скопируй код на первом устройстве и вставь его здесь через «Вставить текстом».'
+      : (e && e.message) || 'Камера недоступна';
+    m.querySelector('.scanbox').classList.add('err');
+  });
+}
+
+function confirmMerge(other, from) {
+  const mine = summary(app.save), theirs = summary(other);
+  const merged = mergeSaves(app.save, other);
+  const after = summary(merged);
+  modal(`
+    <span class="eyebrow">Перенос прогресса</span>
+    <h2>Объединить прогресс?</h2>
+    <ul class="crit merge">
+      <li><span>${icon('smartphone', 16)}Здесь</span><b>${mine.done} ур. · ${mine.stars} ★</b></li>
+      <li><span>${icon('tablet-smartphone', 16)}С другого устройства</span><b>${theirs.done} ур. · ${theirs.stars} ★</b></li>
+      <li><span>${icon('merge', 16)}Станет</span><b>${after.done} ур. · ${after.stars} ★</b></li>
+    </ul>
+    <p class="lead">По каждому уровню останется лучший результат. Настройки этого устройства не изменятся.</p>
+    <div class="btns two"><button class="btn secondary" data-act="no">Отмена</button><button class="btn primary" data-act="yes">Объединить</button></div>`, {
+    no: () => closeModal(),
+    yes: async () => {
+      app.save = merged;
+      checkAchievements(app.save);
+      await persist();
+      closeModal();
+      toast('Прогресс объединён');
+      showSettings(from === 'pause' ? 'menu' : from);
+    },
+  }, { center: true });
 }
 
 function openReset(from) {
@@ -655,7 +775,13 @@ function setPlaceHint(html) {
   }
   if (el.innerHTML !== html) el.innerHTML = html;
   const tray = $ui.querySelector('.tray');
-  if (tray) el.style.bottom = (viewport().h - tray.getBoundingClientRect().top + 10) + 'px';
+  if (tray && document.body.classList.contains('side-panel')) {
+    el.style.bottom = '24px';
+    el.style.left = `calc((100% - ${viewport().w - tray.getBoundingClientRect().left}px) / 2)`;
+  } else if (tray) {
+    el.style.bottom = (viewport().h - tray.getBoundingClientRect().top + 10) + 'px';
+    el.style.left = '';
+  }
 }
 
 function onSlot(type) {

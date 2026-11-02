@@ -1,6 +1,6 @@
 // Сгенерировано tools/build.mjs — не редактировать вручную.
 // Офлайн-кэш игры. Сохранения хранятся отдельно (IndexedDB) и сюда не попадают.
-const VERSION = '0e9888e845ef';
+const VERSION = 'bfe66d444121';
 const CACHE = 'shaman-' + VERSION;
 const PRECACHE = [
   "./",
@@ -18,13 +18,17 @@ const PRECACHE = [
   "src/main.js",
   "src/save/migrations.js",
   "src/save/storage.js",
+  "src/save/transfer.js",
   "src/scenes/GameScene.js",
   "src/systems/geometry.js",
   "src/systems/progress.js",
   "src/ui/art.js",
   "src/ui/icons.js",
+  "src/ui/scanner.js",
   "levels/levels.json",
   "vendor/phaser.min.js",
+  "vendor/jsQR.min.js",
+  "vendor/qrcode.mjs",
   "assets/audio/back.mp3",
   "assets/audio/boing.mp3",
   "assets/audio/click.mp3",
@@ -54,16 +58,7 @@ const PRECACHE = [
   "assets/icons/apple-touch-icon.png",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
-  "assets/icons/icon-maskable-512.png",
-  "assets/splash/splash-1125x2436.png",
-  "assets/splash/splash-1170x2532.png",
-  "assets/splash/splash-1179x2556.png",
-  "assets/splash/splash-1206x2622.png",
-  "assets/splash/splash-1284x2778.png",
-  "assets/splash/splash-1290x2796.png",
-  "assets/splash/splash-1320x2868.png",
-  "assets/splash/splash-750x1334.png",
-  "assets/splash/splash-828x1792.png"
+  "assets/icons/icon-maskable-512.png"
 ];
 
 self.addEventListener('install', (event) => {

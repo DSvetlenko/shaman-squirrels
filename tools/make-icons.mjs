@@ -19,6 +19,9 @@ const jobs = [
   ['maskable', 512, 512, 'assets/icons/icon-maskable-512.png'],
   ...[[1320, 2868], [1290, 2796], [1206, 2622], [1179, 2556], [1170, 2532], [1284, 2778], [1125, 2436], [828, 1792], [750, 1334]]
     .map(([w, h]) => ['splash', w, h, `assets/splash/splash-${w}x${h}.png`]),
+  // iPad: вертикально и горизонтально
+  ...[[2048, 2732], [1668, 2388], [1640, 2360], [1620, 2160], [1488, 2266]]
+    .flatMap(([w, h]) => [['splash', w, h, `assets/splash/splash-${w}x${h}.png`], ['splash', h, w, `assets/splash/splash-${h}x${w}.png`]]),
 ];
 
 const browser = await chromium.launch();

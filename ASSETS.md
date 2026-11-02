@@ -48,4 +48,8 @@ Lucide (https://lucide.dev), лицензия **ISC**. Нужные иконки
 
 ## Библиотеки
 
+qrcode-generator 2.0.4 (Kazuhiko Arase, https://github.com/kazuhikoarase/qrcode-generator), лицензия **MIT** — рисует QR-код для переноса прогресса. Файл `vendor/qrcode.mjs`, лицензия — `vendor/QRCODE-LICENSE`.
+
+jsQR 1.4.0 (https://github.com/cozmo/jsQR), лицензия **Apache 2.0** — распознаёт QR-код с камеры. Файл `vendor/jsQR.min.js` (сжат esbuild), лицензия — `vendor/JSQR-LICENSE`.
+
 Phaser 3.90.0 (https://phaser.io), лицензия **MIT**. Файл `vendor/phaser.min.js`, текст лицензии — `vendor/PHASER-LICENSE.md`. Физика — встроенный в Phaser движок Matter.js (MIT).

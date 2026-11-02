@@ -32,10 +32,12 @@ if (kind === 'icon' || kind === 'maskable') {
   </svg>`;
 } else {
   c.className = 'splash';
-  const unit = w / 390;
+  const m = Math.min(w, h);
+  const unit = m / (m >= 1400 ? 760 : 390);   // на планшетах — спокойнее, не во весь экран
+  const artW = Math.min(w * 0.92, 420 * unit);
   c.innerHTML = `<h1 style="font-size:${40 * unit}px">Шаман</h1>
     <p style="font-size:${15 * unit}px;margin-top:${10 * unit}px">белки над пропастью</p>
-    <div style="width:${w * 0.92}px;height:${w * 0.76}px;margin-top:${30 * unit}px">${menuArtSVG().replace('<svg ', '<svg width="100%" height="100%" ')}</div>`;
+    <div style="width:${artW}px;height:${artW * 0.82}px;margin-top:${30 * unit}px">${menuArtSVG().replace('<svg ', '<svg width="100%" height="100%" ')}</div>`;
 }
 await document.fonts.ready;
 await new Promise((r) => setTimeout(r, 400));

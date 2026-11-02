@@ -33,7 +33,7 @@ const ready = (page) => page.waitForFunction(() => window.__app && window.__app.
 const levelReady = (page) => page.waitForFunction(() => window.__app.scene && window.__app.scene.ready, null, { timeout: 15000 });
 
 // 1. Все уровни грузятся и рисуются на разных экранах.
-for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7']) {
+for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7', 'iPad Mini', 'iPad Pro 11', 'iPad Pro 11 landscape']) {
   const { ctx, page } = await newPage(dev);
   await page.goto(base);
   await ready(page);
@@ -47,12 +47,17 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7']) {
     // видимость: весь мир помещается между HUD и лотком
     const fit = await page.evaluate(() => {
       const s = window.__app.scene, cam = s.cameras.main, d = s.game.registry.get('dpr');
-      const top = cam.worldView.y, bottom = cam.worldView.bottom;
-      const tray = document.querySelector('.tray').getBoundingClientRect().top;
+      const tr = document.querySelector('.tray').getBoundingClientRect();
       const hud = document.querySelector('.hud').getBoundingClientRect().bottom;
-      // экранные координаты верха островов
-      const ys = s.level.islands.map((i) => (i.y - cam.worldView.y) * cam.zoom / d);
-      return { ok: ys.every((y) => y > hud && y < tray), zoom: +(cam.zoom / d).toFixed(2) };
+      const side = document.body.classList.contains('side-panel');
+      // экранные координаты островов: не под шапкой и не под лотком
+      const k = cam.zoom / d;
+      const ok = s.level.islands.every((i) => {
+        const y = (i.y - cam.worldView.y) * k;
+        const x0 = (Math.max(0, i.x) - cam.worldView.x) * k, x1 = (Math.min(400, i.x + i.w) - cam.worldView.x) * k;
+        return y > hud && (side ? x1 < tr.left && y < innerHeight : y < tr.top) && x0 >= -1;
+      });
+      return { ok, zoom: +k.toFixed(2) };
     });
     if (!fit.ok) bad.push(id + ' (не помещается)');
     if (shots && (id === 'w1-03' || id === 'w1-10')) await page.screenshot({ path: `${shots}-${dev.replace(/ /g, '')}-${id}.png` });
@@ -153,6 +158,49 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7']) {
   await ctx.setOffline(false);
   ok('нет ошибок JS (офлайн)', page.errors.filter((e) => !/Failed to load resource/.test(e)).length === 0, page.errors.slice(0, 3).join(' | '));
   await ctx.close();
+}
+
+// 5. Перенос между устройствами: телефон показывает QR, планшет сканирует камерой.
+// Камера эмулируется видеофайлом с этим QR-кодом.
+{
+  const { execSync } = await import('node:child_process');
+  const os = await import('node:os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shaman-qr-'));
+  const { ctx, page } = await newPage('iPhone 13', { serviceWorkers: 'block' });
+  await page.goto(base);
+  await ready(page);
+  await page.evaluate(() => {
+    const a = window.__app;
+    for (const id of ['w1-01', 'w1-02', 'w1-03']) a.save.levels[id] = { completed: true, stars: 3, bestSaved: 5, bestTimeMs: 9000, bestMana: 15, attempts: 1, wins: 1 };
+    a.save.unlocked = ['w1-01', 'w1-02', 'w1-03', 'w1-04'];
+    return window.__persist();
+  });
+  await page.tap('[data-act=settings]');
+  await page.tap('[data-act=qr-show]');
+  await page.waitForSelector('.qrbox svg');
+  await page.locator('.qrbox').screenshot({ path: path.join(tmp, 'qr.png') });
+  await ctx.close();
+  let scanned = false;
+  try {
+    execSync(`ffmpeg -v error -y -loop 1 -i ${path.join(tmp, 'qr.png')} -vf "scale=520:-1,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=0x666666,format=yuv420p" -t 3 -r 15 ${path.join(tmp, 'qr.y4m')}`);
+    const cam = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${path.join(tmp, 'qr.y4m')}`] });
+    const c2 = await cam.newContext({ ...devices['iPad Pro 11'], serviceWorkers: 'block', permissions: ['camera'] });
+    const p2 = await c2.newPage();
+    await p2.goto(base);
+    await ready(p2);
+    await p2.evaluate(() => { window.__app.save.levels['w1-06'] = { completed: true, stars: 2, bestSaved: 5, bestTimeMs: 20000, bestMana: 30, attempts: 1, wins: 1 }; return window.__persist(); });
+    await p2.tap('[data-act=settings]');
+    await p2.tap('[data-act=qr-scan]');
+    await p2.waitForSelector('.crit.merge', { timeout: 15000 });
+    await p2.tap('.modal [data-act=yes]');
+    await p2.waitForTimeout(300);
+    await p2.reload();
+    await ready(p2);
+    const r = await p2.evaluate(() => ({ done: Object.values(window.__app.save.levels).filter((l) => l.completed).length, u4: window.__isUnlocked('w1-04') }));
+    scanned = r.done === 4 && r.u4;
+    await cam.close();
+  } catch (e) { console.log('   ', String(e).slice(0, 200)); }
+  ok('перенос по QR: планшет сканирует код с телефона и объединяет прогресс', scanned);
 }
 
 await browser.close();

@@ -193,12 +193,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------- раскладка
+  // Поле уровня вписывается в свободную область между панелями интерфейса.
+  // На телефоне панели сверху и снизу, на планшете в альбомной ориентации — ещё и справа.
   fitZoom() {
     const cssW = this.scale.gameSize.width / this.dpr();
     const cssH = this.scale.gameSize.height / this.dpr();
-    const { top, bottom } = this.layoutInsets;
+    const { top, bottom, left = 0, right = 0 } = this.layoutInsets;
+    const availW = Math.max(200, cssW - left - right);
     const availH = Math.max(200, cssH - top - bottom);
-    return Math.min(cssW / WORLD.w, availH / WORLD.h);
+    return Math.min(availW / WORLD.w, availH / WORLD.h);
   }
   dpr() { return this.game.registry.get('dpr') || 1; }
 
@@ -210,10 +213,11 @@ export class GameScene extends Phaser.Scene {
     const z = this.fitZoom() * dpr;
     cam.setZoom(z);
     const W = this.scale.gameSize.width, Hh = this.scale.gameSize.height;
-    const { top, bottom } = this.layoutInsets;
+    const { top, bottom, left = 0, right = 0 } = this.layoutInsets;
+    const desiredX = (left + (W / dpr - left - right) / 2) * dpr;
     const desiredY = (top + (Hh / dpr - top - bottom) / 2) * dpr;
-    const dy = desiredY - Hh / 2;
-    cam.centerOn(WORLD.w / 2, WORLD.h / 2 - dy / z);
+    const dx = desiredX - W / 2, dy = desiredY - Hh / 2;
+    cam.centerOn(WORLD.w / 2 - dx / z, WORLD.h / 2 - dy / z);
     this.zoom = z;
   }
 
