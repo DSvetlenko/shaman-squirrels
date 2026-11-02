@@ -110,7 +110,18 @@ function setupGlobalGuards() {
 
 // ------------------------------------------------------------------ Phaser
 function dpr() { return Math.min(window.devicePixelRatio || 1, 3); }
-function viewport() { return { w: window.innerWidth, h: window.innerHeight }; }
+// В установленной на экран «Домой» игре iOS иногда отдаёт высоту окна без строки
+// состояния, хотя игра рисуется на весь экран. Тогда берём размер экрана.
+function viewport() {
+  let w = window.innerWidth, h = window.innerHeight;
+  if (navigator.standalone && screen.width && screen.height) {
+    const portrait = w <= h;
+    const sh = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    if (sh > h && sh - h < 120) h = sh;
+  }
+  document.documentElement.style.setProperty('--app-h', h + 'px');
+  return { w, h };
+}
 
 function initPhaser() {
   const { w, h } = viewport();
@@ -746,7 +757,7 @@ function updateTray() {
   };
   let mode, html;
   if (pl) {
-    mode = 'place:' + pl.type + pl.valid + pl.pinned.join(',');
+    mode = 'place:' + pl.type;
     const it = ITEMS[pl.type];
     let status, cls = 'ok';
     if (!pl.valid) { status = 'Здесь поставить нельзя'; cls = 'bad'; }
@@ -777,7 +788,12 @@ function updateTray() {
       ${h.canFinish ? `<button class="btn primary go" data-act="finish">${icon('flag', 18)}<span>Готово</span></button>` : ''}`;
   }
   if (!pl) setPlaceHint('');
-  if (ctl.dataset.mode === mode) return;
+  if (ctl.dataset.mode === mode) {
+    // Обновляем только доступность кнопки, не пересоздавая кнопки поворота.
+    const ok = ctl.querySelector('[data-act=pok]');
+    if (ok && pl) ok.disabled = !(pl.valid && pl.affordable);
+    return;
+  }
   ctl.dataset.mode = mode;
   ctl.innerHTML = html;
   bindClicks(ctl, {
@@ -785,22 +801,34 @@ function updateTray() {
     release: () => { hideTips(); app.scene && app.scene.release(); },
     speed: () => { app.speed2x = !app.speed2x; app.scene && app.scene.setSpeed(app.speed2x ? 2 : 1); updateTray(); },
     finish: () => { app.scene && app.scene.finishEarly(); },
-    pcancel: () => { play('back'); app.scene && app.scene.cancelPlacement(); },
-    pok: () => { app.scene && app.scene.confirmPlacement(); },
+    pcancel: () => { stopRotate(); play('back'); app.scene && app.scene.cancelPlacement(); },
+    pok: () => { stopRotate(); app.scene && app.scene.confirmPlacement(); },
   });
   ctl.querySelectorAll('[data-hold]').forEach((b) => {
-    let t1 = null, t2 = null;
     const dir = Number(b.dataset.hold);
-    const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
     b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      stopRotate();
       play('tick');
       app.scene && app.scene.rotateGhost(dir * ROTATE_STEP);
-      t1 = setTimeout(() => { t2 = setInterval(() => { play('tick', { vol: 0.6 }); app.scene && app.scene.rotateGhost(dir * ROTATE_STEP / 2); }, 60); }, 320);
+      rot.t1 = setTimeout(() => {
+        rot.t2 = setInterval(() => {
+          // Страховка: поворот только пока палец на кнопке и идёт установка.
+          if (!app.placement || !b.isConnected) return stopRotate();
+          play('tick', { vol: 0.5 });
+          app.scene && app.scene.rotateGhost(dir * ROTATE_STEP / 2);
+        }, 70);
+      }, 350);
     });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => b.addEventListener(ev, stop));
+    ['pointerup', 'pointerleave', 'pointercancel', 'lostpointercapture'].forEach((ev) => b.addEventListener(ev, stopRotate));
   });
 }
+
+// Удержание кнопки поворота. Останавливается при любом отпускании пальца на экране.
+const rot = { t1: null, t2: null };
+function stopRotate() { clearTimeout(rot.t1); clearInterval(rot.t2); rot.t1 = rot.t2 = null; }
+['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'blur'].forEach((ev) => window.addEventListener(ev, stopRotate, { capture: true }));
+document.addEventListener('visibilitychange', stopRotate);
 
 function setPlaceHint(html) {
   let el = $ui.querySelector('.placehint');
