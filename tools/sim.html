@@ -11,11 +11,12 @@
 import { GameScene } from '../src/scenes/GameScene.js';
 import { normalizeLevel } from '../src/levels/loader.js';
 
-const data = await (await fetch('../levels/levels.json')).json();
 const qs = new URLSearchParams(location.search);
-const only = qs.get('only') === 'all' ? null : qs.get('only');
+const data = await (await fetch(qs.get('src') || '../levels/levels.json', { cache: 'no-store' })).json();
+const onlyRaw = qs.get('only');
+const only = !onlyRaw || onlyRaw === 'all' ? null : onlyRaw.split(',');
 const traceEvery = Number(qs.get('trace') || 0);
-const levels = data.levels.map(normalizeLevel).filter((l) => !only || l.id === only);
+const levels = data.levels.map(normalizeLevel).filter((l) => !only || only.includes(l.id));
 
 function runOne(level, solution) {
   return new Promise((resolve) => {
@@ -37,6 +38,32 @@ function runOne(level, solution) {
       });
     });
   });
+}
+
+// Режим jitter: проверка, что уровень проходится и при неточной расстановке,
+// как у живого игрока (сдвиг каждого предмета на несколько пикселей и градусов).
+if (qs.get('jitter')) {
+  const J = Number(qs.get('jitter')) || 6;
+  const rep = [];
+  for (const l of levels) {
+    const sol = l.solution || [];
+    const variants = [];
+    for (const dx of [-J, J]) for (const dy of [-J / 2, J / 2]) variants.push(sol.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })));
+    for (let k = 0; k < sol.length; k++) {
+      if (sol[k].type === 'crate') continue;
+      for (const da of [-3, 3]) variants.push(sol.map((p, i) => (i === k ? { ...p, angle: (p.angle || 0) + da } : p)));
+    }
+    let ok = 0;
+    const fails = [];
+    for (const v of variants) {
+      const r = await runOne(l, v);
+      if (r.win) ok++; else fails.push(r.error ? 'ERR' : `${r.saved}/${r.total}`);
+    }
+    rep.push({ id: l.id, ok, n: variants.length, fails });
+  }
+  window.__report = rep;
+  document.getElementById('out').textContent = JSON.stringify(rep);
+  throw new Error('done');
 }
 
 const report = [];

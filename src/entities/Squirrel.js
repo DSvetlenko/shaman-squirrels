@@ -27,6 +27,8 @@ export class Squirrel {
     this.stuckX = x;
     this.stuckT = 0;
     this.airSteps = 0;
+    this.portalLock = null;
+    this.inDraft = false;
 
     const M = Matter();
     this.body = M.Bodies.rectangle(x, y, SQUIRREL.bodyW, SQUIRREL.bodyH, {
@@ -35,7 +37,7 @@ export class Squirrel {
       density: 0.0012,
       inertia: Infinity, inverseInertia: 0,
       label: 'squirrel',
-      collisionFilter: { category: CAT.SQUIRREL, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SENSOR },
+      collisionFilter: { category: CAT.SQUIRREL, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SENSOR | CAT.ROCK },
     });
     this.body.plugin = { squirrel: this };
     scene.matter.world.add(this.body);
@@ -69,6 +71,7 @@ export class Squirrel {
 
     let grounded = false, gN = null, wall = false, steepUp = false, bound = false;
     for (const c of contacts) {
+      if (c.label === 'rock') continue;
       if (c.upN.y < -0.62) {
         grounded = true;
         if (!gN || c.upN.y < gN.y) gN = c.upN;
@@ -113,7 +116,7 @@ export class Squirrel {
       const tx = -this.groundN.y, ty = this.groundN.x;
       const s = SQUIRREL.speed;
       M.Body.setVelocity(b, { x: this.dir * s * tx, y: this.dir * s * ty + 0.25 });
-    } else if (!grounded) {
+    } else if (!grounded && !this.inDraft) {
       // В воздухе — лёгкое управление, чтобы белка не зависала у края.
       const vx = b.velocity.x;
       const target = this.dir * SQUIRREL.speed;

@@ -105,6 +105,8 @@ p{text-wrap:pretty}
 
 /* карта уровней */
 .worldhead{padding:18px;border-radius:22px;margin-bottom:14px;display:flex;align-items:center;gap:14px}
+.lvgrid + .worldhead{margin-top:10px}
+.worldhead.locked{opacity:.55}
 .worldhead .w{flex:1;min-width:0}
 .worldhead .w b{display:block;font-family:var(--display);font-weight:700;font-size:18px;margin-top:4px}
 .worldhead .st{display:flex;align-items:center;gap:6px;color:var(--amber);font-family:var(--display);font-weight:700;font-size:15px;white-space:nowrap}
@@ -185,7 +187,7 @@ p{text-wrap:pretty}
 .slot .cs{position:absolute;top:8px;right:9px;display:flex;align-items:center;gap:2px;font-weight:800;font-size:11.5px;color:var(--ice)}
 .slot.sel{background:linear-gradient(180deg,rgba(127,227,255,.2),rgba(127,227,255,.06));border-color:rgba(127,227,255,.75);box-shadow:inset 0 0 0 1px rgba(127,227,255,.35),0 0 18px rgba(127,227,255,.18)}
 .slot.off{opacity:.35}
-.slot.hidden{visibility:hidden}
+.slot.hidden{display:none}
 .ctl{display:flex;gap:8px;align-items:center;margin-top:10px;height:52px}
 .ctl .iconbtn{background:rgba(255,255,255,.07);border:1px solid var(--line)}
 .ctl .iconbtn:disabled{opacity:.35}

@@ -29,11 +29,13 @@ export function createPlank(scene, spec, pins) {
     label: 'plank',
     collisionFilter: {
       category: CAT.PLANK,
-      mask: CAT.SQUIRREL | CAT.CRATE | (terrainPinned ? 0 : CAT.TERRAIN),
+      mask: CAT.SQUIRREL | CAT.CRATE | CAT.ROCK | (terrainPinned ? 0 : CAT.TERRAIN),
     },
   });
   scene.matter.world.add(body);
   const obj = { kind: 'plank', type: spec.type, spec, body, pins: [], len: it.len, sprite: null, bolts: [] };
+  // Ветхая доска: выдерживает fragile проходов белок, потом ломается.
+  if (spec.fragile) { obj.fragile = spec.fragile; obj.cross = new Set(); }
   body.plugin = { obj };
   const ends = plankEnds(spec.x, spec.y, spec.angle, it.len);
   for (const p of pins) {
@@ -55,7 +57,7 @@ export function createPlank(scene, spec, pins) {
     obj.pins.push({ ...p, constraint: c });
   }
   if (!scene.headless) {
-    obj.sprite = scene.add.image(spec.x, spec.y, 'plank_' + it.len).setDepth(20);
+    obj.sprite = scene.add.image(spec.x, spec.y, (obj.fragile ? 'plankold_' : 'plank_') + it.len).setDepth(20);
     obj.sprite.setDisplaySize(it.len + 6, it.thick + 6).setRotation(rad(spec.angle));
     for (const p of obj.pins) obj.bolts.push({ end: p.end, img: scene.add.image(0, 0, 'bolt').setDepth(22).setDisplaySize(10, 10) });
   }
@@ -76,7 +78,7 @@ export function createCrate(scene, spec) {
     angle: rad(spec.angle || 0), chamfer: { radius: 3 },
     density: 0.004, friction: 0.9, frictionStatic: 1.2, frictionAir: 0.01, restitution: 0,
     label: 'crate',
-    collisionFilter: { category: CAT.CRATE, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SQUIRREL },
+    collisionFilter: { category: CAT.CRATE, mask: CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.STATIC_OBJ | CAT.SQUIRREL | CAT.ROCK },
   });
   scene.matter.world.add(body);
   const obj = { kind: 'crate', type: 'crate', spec, body, sprite: null };
@@ -109,6 +111,7 @@ export function syncProp(obj) {
   if (!obj.sprite) return;
   const b = obj.body;
   obj.sprite.setPosition(b.position.x, b.position.y).setRotation(b.angle);
+  if (obj.badge) obj.badge.setPosition(b.position.x, b.position.y - 16);
   if (obj.kind === 'plank') {
     for (const bo of obj.bolts) {
       const e = currentEnd(obj, bo.end);
@@ -125,4 +128,5 @@ export function destroyProp(scene, obj) {
   scene.matter.world.remove(obj.body);
   if (obj.sprite) obj.sprite.destroy();
   if (obj.bolts) obj.bolts.forEach((b) => b.img.destroy());
+  if (obj.badge) obj.badge.destroy();
 }

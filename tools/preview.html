@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Превью уровня</title>
+<style>
+  html,body{margin:0;background:#111}
+  #wrap{position:relative;width:400px;height:520px}
+  #bg,#game{position:absolute;inset:0}
+  #bg svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="bg"></div><div id="game"></div></div>
+<script src="../vendor/phaser.min.js"></script>
+<script type="module">
+// Рисует уровень так, как его видит игрок, для визуальной проверки:
+// ?id=<id уровня>&src=<json>. Управление — через window.__pv (из Playwright).
+import { GameScene } from '../src/scenes/GameScene.js';
+import { normalizeLevel } from '../src/levels/loader.js';
+import { backgroundSVG } from '../src/art/svg.js';
+
+const qs = new URLSearchParams(location.search);
+const data = await (await fetch(qs.get('src') || '../levels/levels.json', { cache: 'no-store' })).json();
+const level = normalizeLevel(data.levels.find((l) => l.id === qs.get('id')));
+const idx = data.levels.findIndex((l) => l.id === level.id);
+const wid = level.world || Math.floor(idx / 10) + 1;
+const world = (data.worlds || []).find((w) => w.id === wid) || {};
+document.getElementById('bg').innerHTML = backgroundSVG(world.theme || 'dusk');
+await document.fonts.ready;
+
+const game = new Phaser.Game({
+  type: Phaser.CANVAS, parent: 'game', width: 800, height: 1040, transparent: true, banner: false,
+  audio: { noAudio: true }, scale: { mode: Phaser.Scale.NONE },
+  physics: { default: 'matter', matter: { gravity: { y: 1 }, autoUpdate: false } }, scene: [],
+});
+game.canvas.style.width = '400px';
+game.canvas.style.height = '520px';
+game.registry.set('dpr', 2);
+game.events.once('ready', () => {
+  game.scene.add('game', GameScene, true, {
+    level, insets: { top: 0, bottom: 0, left: 0, right: 0 },
+    onEvent: (name) => {
+      if (name !== 'ready') return;
+      const sc = game.scene.getScene('game');
+      sc.update = () => {};            // время идёт только по команде
+      window.__pv = {
+        place(items) {
+          for (const spec of items.filter((a) => a.at == null)) {
+            const ev = sc.evaluate(spec);
+            sc.placeItem(spec, ev.pins);
+          }
+          sc.runActions = items.filter((a) => a.at != null).sort((a, b) => a.at - b.at);
+          sc.renderFrame();
+        },
+        run(sec) {
+          if (sc.phase === 'build') sc.release();
+          const n = Math.round(sec * 60);
+          for (let i = 0; i < n && sc.phase === 'run'; i++) sc.tick();
+          sc.renderFrame();
+          return { t: sc.runSteps / 60, saved: sc.saved, lost: sc.lost, phase: sc.phase };
+        },
+      };
+      window.__ready = true;
+    },
+  });
+});
+</script>
+</body>
+</html>

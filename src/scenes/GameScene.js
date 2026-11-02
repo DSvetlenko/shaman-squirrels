@@ -3,11 +3,13 @@
 // после «Выпустить» белки бегут сами.
 
 import { WORLD, STEP_MS, ITEMS, PIN_RADIUS, CAT, SQUIRREL } from '../config.js';
-import { islandArt, squirrelSVG, nutSVG, nutPileSVG, stumpSVG, STUMP, plankSVG, boltSVG, crateSVG, trampolineSVG, spikesSVG } from '../art/svg.js';
+import { islandArt, squirrelSVG, nutSVG, nutPileSVG, stumpSVG, STUMP, plankSVG, boltSVG, crateSVG, trampolineSVG, spikesSVG,
+  plankCrackedSVG, gateSVG, plateSVG, beetleSVG, rockSVG, portalSVG } from '../art/svg.js';
 import { addSVGTexture } from '../art/textures.js';
 import { convexHull, pointInPoly, distToPoly, rectCorners, rad } from '../systems/geometry.js';
 import { Squirrel } from '../entities/Squirrel.js';
 import { createPlank, createCrate, createTrampoline, syncProp, destroyProp, plankEnds, currentEnd, trampNormal } from '../entities/props.js';
+import { NutPile, Gate, Updraft, Beetle, RockFall, PortalPair, Fog, COLOR_HEX } from '../entities/features.js';
 
 const Matter = () => Phaser.Physics.Matter.Matter;
 
@@ -44,6 +46,10 @@ export class GameScene extends Phaser.Scene {
     this.ghost = null;
     this.placementPaused = false;
     this.itemsUsed = { plank: 0, longPlank: 0, crate: 0, trampoline: 0 };
+    this.rocks = [];
+    this.features = [];
+    this.beetlesSquashed = 0;
+    this.runActions = [];
 
     const world = this.matter.world;
     world.autoUpdate = false;
@@ -88,6 +94,15 @@ export class GameScene extends Phaser.Scene {
     tex('bolt', boltSVG());
     tex('crate', crateSVG(ITEMS.crate.size));
     tex('trampoline', trampolineSVG());
+    tex('plankold_' + ITEMS.plank.len, plankCrackedSVG(ITEMS.plank.len));
+    tex('plankold_' + ITEMS.longPlank.len, plankCrackedSVG(ITEMS.longPlank.len));
+    (L.gates || []).forEach((g, i) => {
+      jobs.push(addSVGTexture(this, `gate_${i}`, gateSVG(g.h || 76, COLOR_HEX[i % 4]), s));
+      jobs.push(addSVGTexture(this, `plate_${i}`, plateSVG(g.plate.w, COLOR_HEX[i % 4]), s));
+    });
+    if ((L.beetles || []).length) { tex('beetleA', beetleSVG('A')); tex('beetleB', beetleSVG('B')); }
+    if ((L.rocks || []).length) tex('rock', rockSVG(3));
+    if ((L.portals || []).length) { tex('portal_0', portalSVG('#7fe3ff', '#2d5a8c')); tex('portal_1', portalSVG('#ff8fb6', '#7a2d5a')); }
     this.islandArts = L.islands.map((isl, i) => islandArt({ ...isl, seed: isl.seed ?? i + 1 }));
     this.islandArts.forEach((a, i) => jobs.push(addSVGTexture(this, `isl_${L.id}_${i}`, a.svg, s)));
     (L.spikes || []).forEach((sp, i) => jobs.push(addSVGTexture(this, `spk_${L.id}_${i}`, spikesSVG(sp.w), s)));
@@ -148,17 +163,8 @@ export class GameScene extends Phaser.Scene {
       this.drawEyes();
     }
 
-    // Орехи.
-    const N = L.nuts;
-    this.nutSensor = M.Bodies.rectangle(N.x, N.y - 16, 54, 32, {
-      isStatic: true, isSensor: true, label: 'nuts',
-      collisionFilter: { category: CAT.SENSOR, mask: CAT.SQUIRREL },
-    });
-    add(this.nutSensor);
-    if (!this.headless) {
-      this.nutPile = this.add.image(N.x, N.y + 2, 'nutpile').setOrigin(0.5, 1).setDepth(14).setDisplaySize(110, 72);
-      this.tweens.add({ targets: this.nutPile, scaleY: this.nutPile.scaleY * 1.02, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    }
+    // Орехи: одна или несколько куч, у кучи может быть ограниченный запас.
+    this.piles = (Array.isArray(L.nuts) ? L.nuts : [L.nuts]).map((n, i) => new NutPile(this, n, i));
 
     // Шипы.
     (L.spikes || []).forEach((sp, i) => {
@@ -169,11 +175,26 @@ export class GameScene extends Phaser.Scene {
       if (!this.headless) this.add.image(sp.x, sp.y + 1, `spk_${L.id}_${i}`).setOrigin(0, 1).setDisplaySize(Math.ceil(sp.w), 22).setDepth(13);
     });
 
-    // Заранее стоящие предметы уровня.
+    // Заранее стоящие предметы уровня (в том числе ветхие доски).
     for (const p of L.props || []) {
-      const obj = this.spawnProp(p, p.type === 'plank' || p.type === 'longPlank' ? this.computePins(p) : []);
+      const pins = p.type === 'plank' || p.type === 'longPlank' ? this.computePins(p).filter((q) => q.kind === 'world') : [];
+      const obj = this.spawnProp(p, pins);
       obj.preset = true;
+      if (obj.fragile && !this.headless) {
+        obj.badge = this.add.text(p.x, p.y - 16, String(obj.fragile), {
+          fontFamily: 'Unbounded, sans-serif', fontSize: '11px', fontStyle: '700', color: '#ffd9b0',
+          backgroundColor: 'rgba(60,32,18,0.85)', padding: { x: 5, y: 2 },
+        }).setOrigin(0.5).setDepth(46).setResolution(Math.max(2, this.zoom || 2));
+      }
     }
+
+    // Новые механики.
+    this.gates = (L.gates || []).map((g, i) => new Gate(this, g, i));
+    this.updrafts = (L.updrafts || []).map((u) => new Updraft(this, u));
+    this.beetles = (L.beetles || []).map((b, i) => new Beetle(this, b, i));
+    this.rockFalls = (L.rocks || []).map((r, i) => new RockFall(this, r, i));
+    this.portals = (L.portals || []).map((p, i) => new PortalPair(this, p, i));
+    this.fog = L.fog ? new Fog(this, L.fog) : null;
 
     if (!this.headless) {
       this.ghostGfx = this.add.graphics().setDepth(40);
@@ -270,7 +291,8 @@ export class GameScene extends Phaser.Scene {
     if (this.phase === 'end' || !this.canAfford(type)) return false;
     const prev = this.ghost;
     const L = this.level;
-    const def = L.ghostStart || { x: (L.hollow.x + L.nuts.x) / 2, y: Math.min(L.hollow.y, L.nuts.y) - 40 };
+    const n0 = this.piles[0];
+    const def = L.ghostStart || { x: (L.hollow.x + n0.x) / 2, y: Math.min(L.hollow.y, n0.y) - 40 };
     this.ghost = { type, x: prev ? prev.x : def.x, y: prev ? prev.y : def.y, angle: prev && prev.type === type ? prev.angle : 0 };
     if (this.phase === 'run') this.placementPaused = true;
     if (!this.headless) {
@@ -369,7 +391,7 @@ export class GameScene extends Phaser.Scene {
       // 1) конец другой доски
       let best = null, bd = PIN_RADIUS;
       for (const o of this.placed) {
-        if (o.kind !== 'plank') continue;
+        if (o.kind !== 'plank' || o.fragile || o.broken) continue;
         for (const te of [0, 1]) {
           const p = currentEnd(o, te);
           const d = Math.hypot(p.x - e.x, p.y - e.y);
@@ -486,6 +508,12 @@ export class GameScene extends Phaser.Scene {
   renderFrame() {
     for (const s of this.squirrels) s.render();
     for (const o of this.placed) syncProp(o);
+    for (const r of this.rocks) if (r.sprite) r.sprite.setPosition(r.body.position.x, r.body.position.y).setRotation(r.body.angle);
+    for (const g of this.gates) g.render();
+    for (const u of this.updrafts) u.render();
+    for (const b of this.beetles) b.render();
+    for (const r of this.rockFalls) r.render();
+    if (this.fog) this.fog.render();
   }
 
   tick() {
@@ -498,6 +526,19 @@ export class GameScene extends Phaser.Scene {
       }
       this.spawnTimer--;
     }
+
+    // Действия игрока, запланированные на время забега (для проверки уровней).
+    while (this.runActions.length && this.runActions[0].at * 60 <= this.runSteps) {
+      const a = this.runActions.shift();
+      const ev = this.evaluate(a);
+      if (ev.valid && this.canAfford(a.type)) this.placeItem(a, ev.pins);
+    }
+
+    for (const g of this.gates) g.tick();
+    for (const p of this.portals) p.tick(this.squirrels);
+    for (const b of this.beetles) b.tick();
+    for (const r of this.rockFalls) r.tick();
+    if (this.fog) this.fog.tick();
 
     // Контакты с прошлого шага.
     const contacts = new Map();
@@ -515,6 +556,12 @@ export class GameScene extends Phaser.Scene {
         events.push([sq.plugin.squirrel, label, other]);
         continue;
       }
+      if (label === 'rock') {
+        // Скорость камня до удара: после столкновения она уже погашена.
+        const r = other.plugin && other.plugin.rock;
+        if (r && r.hot > 0) events.push([sq.plugin.squirrel, 'rock', other]);
+        continue;
+      }
       const n = pair.collision.normal;
       // Направляем нормаль от опоры к белке.
       const sup = pair.collision.supports && pair.collision.supports[0];
@@ -527,22 +574,88 @@ export class GameScene extends Phaser.Scene {
     for (const [s, label, other] of events) {
       if (s.state !== 'walk') continue;
       if (label === 'tramp') { if (s.launch(other.plugin.obj.normal)) { this.bounces++; this.onEventCb('sfx', 'boing'); } }
-      else if (label === 'spikes') this.loseSquirrel(s, 'spikes');
-      else if (label === 'nuts' && !s.hasNut) { s.takeNut(); this.onEventCb('sfx', 'nut'); }
+      else if (label === 'spikes' || label === 'beetle' || label === 'rock') this.loseSquirrel(s, label);
+      else if (label === 'nuts' && !s.hasNut) { if (other.plugin.pile.take()) { s.takeNut(); this.onEventCb('sfx', 'nut'); } }
       else if (label === 'home' && s.hasNut) this.saveSquirrel(s);
     }
 
     for (const s of this.squirrels) {
       if (s.state !== 'walk') continue;
       if (s.y > WORLD.killY) { this.loseSquirrel(s, 'fall'); continue; }
-      s.step(contacts.get(s.body) || []);
+      if (this.fog && s.y + 6 > this.fog.y) { this.loseSquirrel(s, 'fog'); continue; }
+      const cs = contacts.get(s.body) || [];
+      this.countFragile(s, cs);
+      s.inDraft = false;
+      for (const u of this.updrafts) if (u.apply(s)) s.inDraft = true;
+      s.step(cs);
     }
     this.squirrels = this.squirrels.filter((s) => s.state === 'walk');
+    this.cleanupRocks();
+    this.cleanupBroken();
 
     this.matter.world.step(STEP_MS);
     this.runSteps++;
     if (this.runSteps % 15 === 0) this.emitHud();
     this.checkEnd();
+  }
+
+  // Ветхая доска считает белок, прошедших по ней (туда и обратно — два прохода).
+  countFragile(s, cs) {
+    for (const c of cs) {
+      const o = c.other.plugin && c.other.plugin.obj;
+      if (!o || !o.fragile || o.broken || c.upN.y > -0.5) continue;
+      const key = s.id + (s.hasNut ? 'b' : 'a');
+      if (o.cross.has(key)) continue;
+      o.cross.add(key);
+      const left = o.fragile - o.cross.size;
+      if (o.badge) o.badge.setText(String(Math.max(0, left)));
+      if (left <= 0) this.breakPlank(o);
+      else this.onEventCb('sfx', 'creak');
+    }
+  }
+
+  breakPlank(o) {
+    o.broken = true;
+    const M = Matter();
+    for (const p of o.pins) M.Composite.remove(this.matter.world.localWorld, p.constraint);
+    o.pins = [];
+    for (const b of o.bolts || []) b.img.destroy();
+    o.bolts = [];
+    // Доски, прибитые к сломанной, тоже теряют этот крепёж.
+    for (const q of this.placed) {
+      if (q.kind !== 'plank' || q === o) continue;
+      q.pins = q.pins.filter((p) => {
+        if (p.kind === 'plank' && p.target === o) { M.Composite.remove(this.matter.world.localWorld, p.constraint); return false; }
+        return true;
+      });
+    }
+    if (o.badge) { o.badge.destroy(); o.badge = null; }
+    this.onEventCb('sfx', 'creak');
+    if (!this.headless) this.popText(o.body.position.x, o.body.position.y - 18, 'треск', '#ffd9b0');
+  }
+
+  cleanupBroken() {
+    for (const o of this.placed) {
+      if (o.broken && !o.gone && o.body.position.y > WORLD.killY + 120) {
+        o.gone = true;
+        destroyProp(this, o);
+      }
+    }
+  }
+
+  cleanupRocks() {
+    const keep = [];
+    for (const r of this.rocks) {
+      r.age++;
+      // Камень опасен, пока летит или катится быстро, и ещё несколько шагов после удара.
+      r.hot = r.body.speed > 1.6 ? 8 : Math.max(0, (r.hot || 0) - 1);
+      r.rest = r.body.speed < 0.15 ? r.rest + 1 : 0;
+      if (r.body.position.y > WORLD.killY + 60 || r.rest > 40 || r.age > 60 * 12) {
+        this.matter.world.remove(r.body);
+        if (r.sprite) this.tweens.add({ targets: r.sprite, alpha: 0, duration: 250, onComplete: () => r.sprite.destroy() });
+      } else keep.push(r);
+    }
+    this.rocks = keep;
   }
 
   spawnSquirrel() {
@@ -593,9 +706,13 @@ export class GameScene extends Phaser.Scene {
 
   outcome() {
     const L = this.level;
-    const alive = this.squirrels.filter((s) => s.state === 'walk').length;
+    const walking = this.squirrels.filter((s) => s.state === 'walk');
+    const alive = walking.length;
     const pending = L.squirrels - this.released;
-    return { alive, pending, possible: this.saved + alive + pending >= L.goal };
+    const carrying = walking.filter((s) => s.hasNut).length;
+    const nutsLeft = this.piles.reduce((a, p) => a + (p.count == null ? Infinity : p.count), 0);
+    const canStill = Math.min(alive + pending, carrying + nutsLeft);
+    return { alive, pending, possible: this.saved + canStill >= L.goal };
   }
 
   checkEnd() {
@@ -627,7 +744,7 @@ export class GameScene extends Phaser.Scene {
     const result = {
       win, reason, stars, saved: this.saved, lost: this.lost, goal: L.goal, total: L.squirrels,
       manaSpent: this.manaSpent, manaOk, timeSec, timeOk, timeMs: Math.round(timeSec * 1000),
-      itemsUsed: { ...this.itemsUsed }, bounces: this.bounces,
+      itemsUsed: { ...this.itemsUsed }, bounces: this.bounces, beetles: this.beetlesSquashed,
     };
     this.result = result;
     this.emitHud();
@@ -653,7 +770,8 @@ export class GameScene extends Phaser.Scene {
   // Ставит эталонное решение и прогоняет физику без отрисовки.
   runSolution(solution, maxSteps = 60 * 200, traceEvery = 0) {
     this.trace = traceEvery ? [] : null;
-    for (const spec of solution) {
+    this.runActions = solution.filter((a) => a.at != null).sort((a, b) => a.at - b.at);
+    for (const spec of solution.filter((a) => a.at == null)) {
       const pins = this.computePins(spec);
       if (!this.canAfford(spec.type)) return { error: 'не хватает предмета или магии: ' + spec.type };
       const ev = this.evaluate(spec);

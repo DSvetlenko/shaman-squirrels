@@ -1,7 +1,7 @@
 {
   "name": "shaman-squirrels",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Мобильная PWA-игра: шаман строит мосты для белок над пропастью",
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "check": "node tools/check-levels.mjs",
     "verify": "node tools/verify-levels.mjs",
     "test": "node tools/test-app.mjs",
+    "playtest": "node tools/playtest.mjs",
     "icons": "node tools/make-icons.mjs"
   },
   "devDependencies": {

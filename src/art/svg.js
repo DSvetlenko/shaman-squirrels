@@ -230,28 +230,126 @@ function farIsland(x, y, w, depth, seed, color) {
   return `<path d="${d}" fill="${color}"/><rect x="${x - 2}" y="${y - 2}" width="${w + 4}" height="9" rx="4.5" fill="${color}"/>`;
 }
 
-// Фон мира: небо на закате, далёкие острова, море облаков. Рисуется в DOM за канвасом.
+// Палитры миров: небо (5 точек градиента), солнце, дымка, далёкие острова.
+export const THEMES = {
+  dusk:  { sky: ['#14203a', '#2f4d72', '#c98f7a', '#f2c79a', '#f7dcbc'], sun: ['#fff4d6', '#ffd59a', '#ffb070'], haze: ['#f7dcbc', '#fbe9d6'], far: ['#8ea2bd', '#5c7697', '#4a6487', '#c9a99b'], cloud: ['#fff7ee', '#fdeee0'], sunY: 600 },
+  grove: { sky: ['#1d3a3f', '#3f7a73', '#a9c98f', '#f2dc9a', '#f8ecc4'], sun: ['#fffbe6', '#ffe9a6', '#f6c26b'], haze: ['#f8ecc4', '#fbf3dc'], far: ['#9fb9a2', '#6f9a86', '#577f70', '#c9c39b'], cloud: ['#fffaf0', '#f6f1df'], sunY: 560 },
+  winds: { sky: ['#152844', '#3f6c9c', '#9cc3e0', '#dfeaf2', '#f2f6f8'], sun: ['#ffffff', '#e6f3ff', '#b4d8f5'], haze: ['#e6eef4', '#f4f8fb'], far: ['#9db3cc', '#6d8db0', '#56769b', '#b9c7d6'], cloud: ['#ffffff', '#eef4f8'], sunY: 520 },
+  mist:  { sky: ['#0f1c26', '#1f4148', '#4f7f78', '#8fb5a0', '#c4dccb'], sun: ['#eafff4', '#b9eed5', '#79c9a6'], haze: ['#bfd9c9', '#dbeee2'], far: ['#5d7f80', '#3f6264', '#30504f', '#7f9f95'], cloud: ['#e9f5ee', '#d9ebe0'], sunY: 640 },
+  storm: { sky: ['#120f24', '#33295a', '#7a5a8f', '#c98f8f', '#e8c4b0'], sun: ['#ffe9f0', '#f3b6c8', '#c4789a'], haze: ['#e3c4bb', '#f0dcd2'], far: ['#7d6f9c', '#5b4f80', '#463d68', '#a88b9f'], cloud: ['#f6e9ef', '#eadbe3'], sunY: 600 },
+};
+
+// Фон мира: небо, далёкие острова, море облаков. Рисуется в DOM за канвасом.
 export function backgroundSVG(theme = 'dusk') {
   const W = 400, H = 900;
-  const sky = theme === 'dusk'
-    ? ['#14203a', '#2f4d72', '#c98f7a', '#f2c79a', '#f7dcbc']
-    : ['#14203a', '#2f4d72', '#c98f7a', '#f2c79a', '#f7dcbc'];
+  const T = THEMES[theme] || THEMES.dusk;
+  const sky = T.sky;
   let o = `<defs>
   <linearGradient id="bgsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset=".38" stop-color="${sky[1]}"/><stop offset=".68" stop-color="${sky[2]}"/><stop offset=".86" stop-color="${sky[3]}"/><stop offset="1" stop-color="${sky[4]}"/></linearGradient>
-  <radialGradient id="bgsun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff4d6"/><stop offset=".25" stop-color="#ffd59a" stop-opacity=".75"/><stop offset="1" stop-color="#ffb070" stop-opacity="0"/></radialGradient>
-  <linearGradient id="bghaze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7dcbc" stop-opacity="0"/><stop offset="1" stop-color="#fbe9d6" stop-opacity=".95"/></linearGradient>
+  <radialGradient id="bgsun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${T.sun[0]}"/><stop offset=".25" stop-color="${T.sun[1]}" stop-opacity=".75"/><stop offset="1" stop-color="${T.sun[2]}" stop-opacity="0"/></radialGradient>
+  <linearGradient id="bghaze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${T.haze[0]}" stop-opacity="0"/><stop offset="1" stop-color="${T.haze[1]}" stop-opacity=".95"/></linearGradient>
   </defs>`;
   o += `<rect width="${W}" height="${H}" fill="url(#bgsky)"/>`;
-  o += `<circle cx="300" cy="600" r="190" fill="url(#bgsun)"/>`;
-  o += `<g opacity=".09" fill="#fff"><path d="M300 600 L110 0 L165 0 Z"/><path d="M300 600 L262 0 L305 0 Z"/><path d="M300 600 L400 40 L400 130 Z"/></g>`;
-  o += farIsland(18, 520, 70, 90, 11, '#8ea2bd');
-  o += farIsland(306, 250, 58, 70, 12, '#5c7697');
-  o += farIsland(188, 190, 34, 40, 13, '#4a6487');
-  o += farIsland(140, 590, 110, 120, 14, '#c9a99b');
+  const sy = T.sunY;
+  o += `<circle cx="300" cy="${sy}" r="190" fill="url(#bgsun)"/>`;
+  o += `<g opacity=".09" fill="#fff"><path d="M300 ${sy} L110 0 L165 0 Z"/><path d="M300 ${sy} L262 0 L305 0 Z"/><path d="M300 ${sy} L400 40 L400 130 Z"/></g>`;
+  o += farIsland(18, 520, 70, 90, 11, T.far[0]);
+  o += farIsland(306, 250, 58, 70, 12, T.far[1]);
+  o += farIsland(188, 190, 34, 40, 13, T.far[2]);
+  o += farIsland(140, 590, 110, 120, 14, T.far[3]);
   o += cloud(90, 270, 0.8, 0.22, '#fff');
   o += cloud(330, 330, 0.7, 0.18, '#fff');
   o += `<rect x="0" y="600" width="${W}" height="${H - 600}" fill="url(#bghaze)"/>`;
   [[30, 710, 1.3], [130, 690, 1.1], [240, 718, 1.4], [360, 695, 1.2], [80, 770, 1.6], [300, 780, 1.7], [190, 830, 1.8], [20, 860, 1.5], [380, 860, 1.6]]
-    .forEach(([cx, cy, s], i) => { o += cloud(cx, cy, s, 0.92, i % 2 ? '#fff7ee' : '#fdeee0'); });
+    .forEach(([cx, cy, s], i) => { o += cloud(cx, cy, s, 0.92, T.cloud[i % 2]); });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${o}</svg>`;
+}
+
+// ================================================================ новые объекты
+
+// Трещины поверх доски: ветхий мост.
+export function plankCrackedSVG(len, thick = 11) {
+  const pad = 3, w = len + pad * 2, h = thick + pad * 2;
+  const r = rng(len * 7 + 3);
+  let cracks = '';
+  for (let k = 0; k < Math.max(3, Math.round(len / 28)); k++) {
+    const x0 = pad + 10 + uni(r, 0, len - 20);
+    cracks += `M${f1(x0)} ${pad + 1} l${f1(uni(r, -3, 3))} ${f1(thick * 0.45)} l${f1(uni(r, -4, 4))} ${f1(thick * 0.5)} `;
+  }
+  const body = `<rect x="${pad}" y="${pad}" width="${len}" height="${thick}" rx="3" fill="url(#oldwood)" stroke="${OUTLINE}" stroke-width="1.8"/>
+  <path d="${cracks}" stroke="#2c1b10" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <path d="M${pad + 6} ${pad + 3} L${f1(pad + len * 0.35)} ${pad + 3} M${f1(pad + len * 0.6)} ${pad + thick - 3} L${pad + len - 8} ${pad + thick - 3}" stroke="#4f3a2a" stroke-width="1" opacity=".6"/>`;
+  return svgDoc(w, h, body, `<linearGradient id="oldwood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a99079"/><stop offset=".55" stop-color="#7f6650"/><stop offset="1" stop-color="#574333"/></linearGradient>`);
+}
+
+// Ворота: деревянная решётка в каменных столбиках. Ширина 26, высота h+10.
+export function gateSVG(h, color = '#f2a541') {
+  const w = 26, H = h + 10;
+  let bars = '';
+  for (const x of [8, 13, 18]) bars += `<rect x="${x - 1.6}" y="6" width="3.2" height="${h - 2}" rx="1.2" fill="url(#wood)" stroke="${OUTLINE}" stroke-width="1"/>`;
+  const body = `<rect x="2" y="${H - 10}" width="${w - 4}" height="9" rx="2" fill="#7a7f8c" stroke="${OUTLINE}" stroke-width="1.4"/>
+  ${bars}
+  <rect x="3" y="2" width="${w - 6}" height="7" rx="2.5" fill="url(#wood)" stroke="${OUTLINE}" stroke-width="1.4"/>
+  ${[0.35, 0.7].map((t) => `<rect x="4" y="${f1(6 + (h - 4) * t)}" width="${w - 8}" height="4" rx="1.5" fill="#596173" stroke="${OUTLINE}" stroke-width="1"/>`).join('')}
+  <circle cx="${w / 2}" cy="5.5" r="2.6" fill="${color}" stroke="${OUTLINE}" stroke-width="1"/>`;
+  return svgDoc(w, H, body, DEFS.wood);
+}
+
+// Нажимная плита. Ширина w+8, высота 12. Подсветка рисуется отдельно.
+export function plateSVG(w, color = '#f2a541') {
+  const W = w + 8;
+  const body = `<path d="M2 11 L6 4 L${W - 6} 4 L${W - 2} 11 Z" fill="#8a8f9b" stroke="${OUTLINE}" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="7" y="2" width="${W - 14}" height="4" rx="1.5" fill="#b9bec9" stroke="${OUTLINE}" stroke-width="1.2"/>
+  <path d="M${W / 2 - 7} 8.5 h14" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+  <rect x="${W / 2 - 3.5}" y="6.5" width="7" height="4" rx="1" fill="none" stroke="${color}" stroke-width="1.2"/>`;
+  return svgDoc(W, 12, body);
+}
+
+// Колючий жук, вид сбоку, смотрит вправо. 40×28. Два кадра.
+export function beetleSVG(frame = 'A') {
+  const legs = frame === 'A'
+    ? 'M12 21 l-4 6 M20 22 l1 6 M28 21 l4 6'
+    : 'M12 21 l-1 6 M20 22 l-4 6 M28 21 l1 6';
+  let spikes = '';
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI * (0.92 - i * 0.14);
+    const cx = 19 + Math.cos(a) * 13, cy = 19 - Math.sin(a) * 12;
+    const tx = 19 + Math.cos(a) * 19, ty = 19 - Math.sin(a) * 17;
+    const px = Math.cos(a + Math.PI / 2) * 2.4, py = -Math.sin(a + Math.PI / 2) * 2.4;
+    spikes += `<path d="M${f1(cx - px)} ${f1(cy - py)} L${f1(tx)} ${f1(ty)} L${f1(cx + px)} ${f1(cy + py)} Z"/>`;
+  }
+  const body = `<g stroke="${OUTLINE}" stroke-width="1.6" stroke-linecap="round">
+    <path d="${legs}" fill="none"/>
+    <g fill="#d9d4e6">${spikes}</g>
+    <path d="M5 21 C5 10 12 5 20 5 C29 5 34 11 34 21 Z" fill="#5a3f86"/>
+    <path d="M9 18 C10 11 14 8 20 8" fill="none" stroke="#8f74c4" stroke-width="2.2"/>
+    <ellipse cx="35" cy="17" rx="5" ry="4.6" fill="#3b2a5a"/>
+  </g>
+  <circle cx="37" cy="16" r="1.6" fill="#ffd27a"/>`;
+  return svgDoc(42, 30, body);
+}
+
+// Валун для камнепада. 28×28.
+export function rockSVG(seed = 1) {
+  const r = rng(seed * 13 + 5);
+  const pts = [];
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const rr = 11 + uni(r, -1.6, 1.4);
+    pts.push(`${f1(14 + Math.cos(a) * rr)} ${f1(14 + Math.sin(a) * rr)}`);
+  }
+  const body = `<path d="M${pts.join(' L')} Z" fill="url(#rock)" stroke="${OUTLINE}" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M8 11 q3 -4 7 -4 M17 19 q3 0 5 -3" stroke="#c9ced8" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".7"/>
+  <path d="M11 18 l3 2 M18 10 l-2 3" stroke="#3b3e47" stroke-width="1.1" opacity=".6"/>`;
+  return svgDoc(28, 28, body, `<radialGradient id="rock" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#a8adb8"/><stop offset=".6" stop-color="#6f7480"/><stop offset="1" stop-color="#454954"/></radialGradient>`);
+}
+
+// Портал: светящееся кольцо. 40×60.
+export function portalSVG(color = '#7fe3ff', inner = '#2d5a8c') {
+  const body = `<ellipse cx="20" cy="30" rx="16" ry="26" fill="url(#pin)"/>
+  <ellipse cx="20" cy="30" rx="16" ry="26" fill="none" stroke="${OUTLINE}" stroke-width="5"/>
+  <ellipse cx="20" cy="30" rx="16" ry="26" fill="none" stroke="${color}" stroke-width="3"/>
+  <ellipse cx="20" cy="30" rx="10" ry="18" fill="none" stroke="#ffffff" stroke-width="1.2" opacity=".55" stroke-dasharray="6 5"/>
+  <path d="M20 8 l2 5 l-2 4 l-2 -4 Z M20 52 l2 -5 l-2 -4 l-2 4 Z" fill="#ffffff" opacity=".85"/>`;
+  return svgDoc(40, 60, body, `<radialGradient id="pin" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset=".35" stop-color="${color}" stop-opacity=".7"/><stop offset="1" stop-color="${inner}" stop-opacity=".95"/></radialGradient>`);
 }

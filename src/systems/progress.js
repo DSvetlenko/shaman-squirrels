@@ -7,12 +7,20 @@ export const ACHIEVEMENTS = [
   { id: 'no_loss', title: 'Все дома', desc: 'Пройди уровень, не потеряв ни одной белки', check: (s, ctx) => ctx && ctx.result && ctx.result.win && ctx.result.lost === 0 && ctx.result.saved === ctx.result.total },
   { id: 'three_stars', title: 'Безупречно', desc: 'Получи три звезды на любом уровне', check: (s) => Object.values(s.levels).some((l) => l.stars >= 3) },
   { id: 'stars_15', title: 'Звездочёт', desc: 'Собери 15 звёзд', progress: (s) => [totalStars(s), 15] },
-  { id: 'stars_30', title: 'Все звёзды островов', desc: 'Собери 30 звёзд', progress: (s) => [totalStars(s), 30] },
+  { id: 'stars_30', title: 'Тридцать звёзд', desc: 'Собери 30 звёзд', progress: (s) => [totalStars(s), 30] },
+  { id: 'stars_75', title: 'Звёздный путь', desc: 'Собери 75 звёзд', progress: (s) => [totalStars(s), 75] },
+  { id: 'stars_150', title: 'Небосвод', desc: 'Собери 150 звёзд', progress: (s) => [totalStars(s), 150] },
   { id: 'saved_50', title: 'Полное дупло', desc: 'Верни домой 50 белок', progress: (s) => [s.stats.squirrelsSaved, 50] },
   { id: 'carpenter', title: 'Плотник', desc: 'Поставь 20 досок', progress: (s) => [s.stats.itemsPlaced.plank + s.stats.itemsPlaced.longPlank, 20] },
   { id: 'bouncy', title: 'Прыгучие', desc: 'Подбрось белок батутом 30 раз', progress: (s) => [s.stats.bounces || 0, 30] },
   { id: 'all_or_nothing', title: 'Все до одного', desc: 'Пройди уровень «Все до одного»', check: (s) => isDone(s, 'w1-08') },
   { id: 'storm', title: 'Буря позади', desc: 'Пройди испытание «Буря»', check: (s) => isDone(s, 'w1-10') },
+  { id: 'world2', title: 'Ореховая роща', desc: 'Пройди второй мир', check: (s) => isDone(s, 'w2-10') },
+  { id: 'world3', title: 'Ветреные выси', desc: 'Пройди третий мир', check: (s) => isDone(s, 'w3-10') },
+  { id: 'world4', title: 'Сквозь туман', desc: 'Пройди испытание «Туманный путь»', check: (s) => isDone(s, 'w4-10') },
+  { id: 'world5', title: 'Повелитель бури', desc: 'Пройди испытание «Буревал»', check: (s) => isDone(s, 'w5-10') },
+  { id: 'squash_10', title: 'Хрусь', desc: 'Раздави ящиками 10 колючих жуков', progress: (s) => [s.stats.beetles || 0, 10] },
+  { id: 'saved_300', title: 'Большое племя', desc: 'Верни домой 300 белок', progress: (s) => [s.stats.squirrelsSaved, 300] },
 ];
 
 function isDone(s, id) { return !!(s.levels[id] && s.levels[id].completed); }
@@ -78,6 +86,7 @@ export function applyResult(save, levels, level, result, bounces) {
   st.squirrelsLost += result.lost;
   st.manaSpent += result.manaSpent;
   st.bounces = (st.bounces || 0) + (bounces || 0);
+  st.beetles = (st.beetles || 0) + (result.beetles || 0);
   for (const k of Object.keys(result.itemsUsed)) st.itemsPlaced[k] = (st.itemsPlaced[k] || 0) + result.itemsUsed[k];
   const before = r.stars;
   let reward = 0, newRecord = false;

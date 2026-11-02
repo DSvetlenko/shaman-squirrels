@@ -1,7 +1,7 @@
 // Общие параметры игры. Баланс предметов и физики собран здесь,
 // чтобы уровни (levels/levels.json) содержали только данные.
 
-export const GAME_VERSION = '0.3.2';
+export const GAME_VERSION = '0.4.0';
 
 // Версия структуры сохранений. Увеличивается при изменении формата,
 // старые сохранения переводятся функциями из src/save/migrations.js.
@@ -53,6 +53,7 @@ export const CAT = {
   STATIC_OBJ: 0x0008,
   SQUIRREL: 0x0010,
   SENSOR: 0x0020,
+  ROCK: 0x0040,
 };
 
 export const ROTATE_STEP = 5;   // градусов за нажатие кнопки поворота

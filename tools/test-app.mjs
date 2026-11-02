@@ -37,7 +37,10 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7', 'iP
   const { ctx, page } = await newPage(dev);
   await page.goto(base);
   await ready(page);
-  const ids = await page.evaluate(() => window.__app.levels.map((l) => l.id));
+  // Самые узкий и самый широкий экраны проверяем на всех уровнях, остальные — на каждом третьем.
+  const all = await page.evaluate(() => window.__app.levels.map((l) => l.id));
+  const full = dev === 'iPhone SE' || dev === 'iPad Pro 11 landscape';
+  const ids = full ? all : all.filter((_, i) => i % 3 === 0 || i === all.length - 1);
   // открываем всё, чтобы пройтись по уровням
   await page.evaluate(() => { window.__app.save.unlocked = window.__app.levels.map((l) => l.id); });
   let bad = [];
@@ -62,7 +65,7 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7', 'iP
     if (!fit.ok) bad.push(id + ' (не помещается)');
     if (shots && (id === 'w1-03' || id === 'w1-10')) await page.screenshot({ path: `${shots}-${dev.replace(/ /g, '')}-${id}.png` });
   }
-  ok(`${dev}: все ${ids.length} уровней загружаются и помещаются на экран`, bad.length === 0, bad.join(', '));
+  ok(`${dev}: ${full ? 'все' : 'выборочно'} ${ids.length} уровней загружаются и помещаются на экран`, bad.length === 0, bad.join(', '));
   ok(`${dev}: нет ошибок JS`, page.errors.length === 0, page.errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
@@ -121,14 +124,15 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7', 'iP
   await ready(page);
   await page.evaluate(() => { window.__app.save.levels['w1-05'] = { completed: true, stars: 2, bestSaved: 5, bestTimeMs: 9000, bestMana: 30, attempts: 3, wins: 1 }; window.__app.save.unlocked.push('w1-06'); return window.__persist(); });
   const orig = JSON.parse(fs.readFileSync(path.join(root, 'levels/levels.json'), 'utf8'));
+  const n0 = orig.levels.length;
   const extra = JSON.parse(JSON.stringify(orig.levels[0]));
-  extra.id = 'w2-01'; extra.name = 'Новый уровень';
-  const mod = { ...orig, levels: [extra, ...orig.levels, { ...extra, id: 'w2-02', name: 'Ещё один' }] };
+  extra.id = 'new-01'; extra.name = 'Новый уровень';
+  const mod = { ...orig, levels: [extra, ...orig.levels, { ...extra, id: 'new-02', name: 'Ещё один' }] };
   await page.route('**/levels/levels.json', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(mod) }));
   await page.reload();
   await ready(page);
   const st = await page.evaluate(() => ({ n: window.__app.levels.length, r: window.__app.save.levels['w1-05'], u6: window.__isUnlocked('w1-06') }));
-  ok('после добавления уровней старые результаты и открытые уровни сохраняются', st.n === 12 && st.r && st.r.stars === 2 && st.u6, JSON.stringify(st));
+  ok('после добавления уровней старые результаты и открытые уровни сохраняются', st.n === n0 + 2 && st.r && st.r.stars === 2 && st.u6, JSON.stringify(st));
   await ctx.close();
 }
 

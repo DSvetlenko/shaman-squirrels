@@ -46,7 +46,6 @@ window.__audio = () => audioState();
 
 // ------------------------------------------------------------------ запуск
 async function boot() {
-  document.getElementById('bg').innerHTML = backgroundSVG();
   applyFormFactor();
   setupGlobalGuards();
   try {
@@ -216,18 +215,32 @@ function stopLevel() {
 
 function starsOf(id) { return (app.save.levels[id] && app.save.levels[id].stars) || 0; }
 
+// Мир уровня: по полю world, иначе по порядку (10 уровней на мир).
+function worldOf(level) {
+  const n = level.world || Math.floor(app.levels.indexOf(level) / 10) + 1;
+  return app.worlds.find((w) => w.id === n) || { id: n, name: 'Мир ' + n, theme: 'dusk' };
+}
+let bgTheme = null;
+function setBackground(theme) {
+  theme = theme || 'dusk';
+  if (bgTheme === theme) return;
+  bgTheme = theme;
+  document.getElementById('bg').innerHTML = backgroundSVG(theme);
+}
+
 function showMenu() {
   stopLevel();
   setMusic('menu');
   app.screen = 'menu';
   const cont = continueLevel(app.save, app.levels);
+  setBackground(worldOf(cont).theme);
   const idx = app.levels.indexOf(cont) + 1;
   const allDone = app.levels.every((l) => app.save.levels[l.id] && app.save.levels[l.id].completed);
   const stars = totalStars(app.save), maxStars = app.levels.length * 3;
   render(`
   <section class="screen menu dim">
     <div class="hero">
-      <span class="eyebrow">Парящие острова</span>
+      <span class="eyebrow">${esc(worldOf(cont).name)}</span>
       <h1 class="title-xl">Шаман</h1>
       <p>Белкам нужны орехи с соседних островов. Построй путь над пропастью и верни племя домой.</p>
     </div>
@@ -263,7 +276,7 @@ function showLevels() {
   app.screen = 'levels';
   const cont = continueLevel(app.save, app.levels);
   const total = totalStars(app.save), max = app.levels.length * 3;
-  const cards = app.levels.map((l, i) => {
+  const card = (l, i) => {
     const unlocked = isUnlocked(app.save, app.levels, l.id);
     const st = starsOf(l.id);
     const cls = ['lv', unlocked ? '' : 'locked', l.id === cont.id && unlocked ? 'cur' : '', l.special ? 'special' : ''].join(' ');
@@ -275,7 +288,25 @@ function showLevels() {
       ${l.special ? '<span class="tag">Испытание</span>' : ''}
       ${unlocked ? '' : `<span class="badge">${icon('lock', 16)}</span>`}
     </button>`;
+  };
+  // Уровни группируются по мирам; миров и уровней может быть сколько угодно.
+  const groups = [];
+  app.levels.forEach((l, i) => {
+    const w = worldOf(l);
+    let g = groups[groups.length - 1];
+    if (!g || g.w.id !== w.id) { g = { w, items: [] }; groups.push(g); }
+    g.items.push([l, i]);
+  });
+  const sections = groups.map(({ w, items }) => {
+    const got = items.reduce((a, [l]) => a + starsOf(l.id), 0);
+    const open = isUnlocked(app.save, app.levels, items[0][0].id);
+    return `<div class="worldhead glass ${open ? '' : 'locked'}" id="world-${w.id}">
+        <div class="w"><span class="eyebrow">Мир ${w.id}</span><b>${esc(w.name)}</b></div>
+        <div class="st">${icon('star', 18)}<span>${got} / ${items.length * 3}</span></div>
+      </div>
+      <div class="lvgrid">${items.map(([l, i]) => card(l, i)).join('')}</div>`;
   }).join('');
+  void total; void max;
   render(`
   <section class="screen dim">
     <div class="topbar">
@@ -283,13 +314,12 @@ function showLevels() {
       <div class="t"><h2>Уровни</h2></div>
     </div>
     <div class="scroll">
-      <div class="worldhead glass">
-        <div class="w"><span class="eyebrow">Мир 1</span><b>${esc((app.worlds[0] && app.worlds[0].name) || 'Парящие острова')}</b></div>
-        <div class="st">${icon('star', 18)}<span>${total} / ${max}</span></div>
-      </div>
-      <div class="lvgrid">${cards}</div>
+      ${sections}
     </div>
   </section>`);
+  // Прокрутить к текущему уровню.
+  const curEl = $ui.querySelector('.lv.cur');
+  if (curEl) requestAnimationFrame(() => curEl.scrollIntoView({ block: 'center' }));
   bindClicks($ui, {
     back: () => showMenu(),
     lv: (el) => {
@@ -644,6 +674,7 @@ function startLevel(id) {
   app.paused = false;
   recordAttemptStart(app.save, id);
   persist();
+  setBackground(worldOf(level).theme);
   setMusic('game');
   duckMusic(false);
   renderGameUI();
