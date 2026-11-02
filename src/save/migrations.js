@@ -5,7 +5,9 @@
 import { SAVE_SCHEMA, GAME_VERSION } from '../config.js';
 
 export function defaultSettings() {
-  return { sound: true, hints: true, haptics: true, speed2x: false };
+  // sound — звуковые эффекты, music — фоновая музыка; громкость 0..1.
+  // ignoreSilent — на iPhone играть звук даже при включённом «Бесшумно».
+  return { sound: true, music: true, sfxVolume: 0.8, musicVolume: 0.55, ignoreSilent: true, hints: true, haptics: true, speed2x: false };
 }
 
 export function defaultStats() {

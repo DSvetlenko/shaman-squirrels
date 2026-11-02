@@ -102,6 +102,7 @@ export class Squirrel {
         M.Body.setVelocity(b, { x: -this.dir * 0.15, y: -SQUIRREL.hopVy });
         this.hopCd = 30;
         this.sinceHop = 0;
+        this.scene.onEventCb('sfx', 'hop');
         return;
       }
       if (this.sinceHop > 26 && grounded) this.turn();

@@ -11,7 +11,7 @@ import { encodeTransfer, decodeTransfer, looksLikeTransfer, mergeSaves, summary 
 import { startScanner } from './ui/scanner.js';
 import qrcode from '../vendor/qrcode.mjs';
 import { getItemArt, menuArtSVG } from './ui/art.js';
-import { unlockAudio, play, setSoundEnabled, suspendAudio, resumeAudio } from './core/audio.js';
+import { unlockAudio, play, configureAudio, setMusic, duckMusic, suspendAudio, resumeAudio, audioState } from './core/audio.js';
 import {
   ACHIEVEMENTS, achievementState, totalStars, isUnlocked, nextLevelId, continueLevel,
   recordAttemptStart, applyResult, checkAchievements,
@@ -42,6 +42,7 @@ window.__isUnlocked = (id) => isUnlocked(app.save, app.levels, id);
 window.__exportText = () => exportText(app.save);
 window.__parseImport = (t) => parseImport(t);
 window.__persist = () => persist();
+window.__audio = () => audioState();
 
 // ------------------------------------------------------------------ запуск
 async function boot() {
@@ -63,7 +64,7 @@ async function boot() {
   }
   primeLastGood(app.save);
   app.save.stats.sessions++;
-  setSoundEnabled(app.save.settings.sound);
+  configureAudio(app.save.settings);
   app.speed2x = !!app.save.settings.speed2x;
   persist();
   requestPersistence();
@@ -89,8 +90,9 @@ function setupGlobalGuards() {
   document.addEventListener('touchmove', (e) => {
     if (!e.target.closest('.scroll, .sheet, textarea')) e.preventDefault();
   }, { passive: false });
+  // iOS разрешает включать звук только в touchend/click, не в pointerdown.
   const unlock = () => { unlockAudio(); };
-  document.addEventListener('pointerdown', unlock, { passive: true });
+  ['touchend', 'click', 'keydown'].forEach((e) => document.addEventListener(e, unlock, { passive: true, capture: true }));
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       persist();
@@ -187,12 +189,13 @@ function bindClicks(root, map) {
   root.querySelectorAll('[data-act]').forEach((el) => {
     el.addEventListener('click', (e) => {
       const fn = map[el.dataset.act];
-      if (fn) { play('click'); fn(el, e); }
+      if (fn) { if (!el.dataset.silent) play('click'); fn(el, e); }
     });
   });
 }
 
 function stopLevel() {
+  duckMusic(false);
   if (app.game && app.game.scene.isActive('game')) app.game.scene.stop('game');
   app.scene = null;
   app.level = null;
@@ -204,6 +207,7 @@ function starsOf(id) { return (app.save.levels[id] && app.save.levels[id].stars)
 
 function showMenu() {
   stopLevel();
+  setMusic('menu');
   app.screen = 'menu';
   const cont = continueLevel(app.save, app.levels);
   const idx = app.levels.indexOf(cont) + 1;
@@ -244,6 +248,7 @@ function showMenu() {
 
 function showLevels() {
   stopLevel();
+  setMusic('menu');
   app.screen = 'levels';
   const cont = continueLevel(app.save, app.levels);
   const total = totalStars(app.save), max = app.levels.length * 3;
@@ -286,6 +291,7 @@ function showLevels() {
 
 function showStats() {
   stopLevel();
+  setMusic('menu');
   app.screen = 'stats';
   const s = app.save.stats;
   const done = app.levels.filter((l) => app.save.levels[l.id] && app.save.levels[l.id].completed).length;
@@ -324,11 +330,21 @@ function showStats() {
 }
 
 function showSettings(from) {
-  if (from !== 'pause') stopLevel();
+  if (from !== 'pause') { stopLevel(); setMusic('menu'); }
   app.screen = 'settings';
   const st = app.save.settings;
   const sw = (on) => `<span class="switch ${on ? 'on' : ''}"></span>`;
   const where = storageInfo.idb ? 'IndexedDB + резервная копия' : 'localStorage';
+  const volRow = (key, title, hint, on, vol) => `
+        <div class="row vol">
+          <span class="lbl"><b>${title}</b><small>${hint}</small></span>
+          <button class="switch ${on ? 'on' : ''}" data-act="t-${key}" aria-label="${title}"></button>
+        </div>
+        <div class="slider ${on ? '' : 'off'}">
+          ${icon(key === 'music' ? 'volume-2' : 'sparkles', 16)}
+          <input type="range" min="0" max="100" step="5" value="${Math.round(vol * 100)}" data-vol="${key}" aria-label="Громкость: ${title}">
+          <span class="vv">${Math.round(vol * 100)}</span>
+        </div>`;
   const updated = app.save.updatedAt ? new Date(app.save.updatedAt).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '—';
   render(`
   <section class="screen dim">
@@ -338,8 +354,13 @@ function showSettings(from) {
     </div>
     <div class="scroll">
       <div class="card glass">
+        <h3>Звук</h3>
+        ${volRow('music', 'Музыка', 'Спокойная мелодия на фоне', st.music, st.musicVolume)}
+        ${volRow('sfx', 'Эффекты', 'Постройки, прыжки, кнопки', st.sound, st.sfxVolume)}
+        <button class="row rowbtn" data-act="t-silent"><span class="lbl"><b>Звук в беззвучном режиме</b><small>На iPhone играть, даже если включён переключатель «Бесшумно»</small></span>${sw(st.ignoreSilent)}</button>
+      </div>
+      <div class="card glass">
         <h3>Игра</h3>
-        <button class="row rowbtn" data-act="t-sound"><span class="lbl"><b>Звук</b><small>Эффекты и мелодии</small></span>${sw(st.sound)}</button>
         <button class="row rowbtn" data-act="t-hints"><span class="lbl"><b>Подсказки</b><small>Советы в начале новых уровней</small></span>${sw(st.hints)}</button>
         <button class="row rowbtn" data-act="t-speed"><span class="lbl"><b>Быстрый забег</b><small>Белки бегут вдвое быстрее по умолчанию</small></span>${sw(st.speed2x)}</button>
       </div>
@@ -369,7 +390,9 @@ function showSettings(from) {
   const back = () => (from === 'pause' ? backToPausedLevel() : showMenu());
   bindClicks($ui, {
     back,
-    't-sound': () => { st.sound = !st.sound; setSoundEnabled(st.sound); persist(); showSettings(from); },
+    't-music': () => { st.music = !st.music; configureAudio(st); persist(); showSettings(from); },
+    't-sfx': () => { st.sound = !st.sound; configureAudio(st); persist(); showSettings(from); },
+    't-silent': () => { st.ignoreSilent = !st.ignoreSilent; configureAudio(st); persist(); showSettings(from); },
     't-hints': () => { st.hints = !st.hints; persist(); showSettings(from); },
     't-speed': () => { st.speed2x = !st.speed2x; app.speed2x = st.speed2x; persist(); showSettings(from); },
     export: () => doExport(),
@@ -378,6 +401,17 @@ function showSettings(from) {
     'qr-show': () => openQRShow(from),
     'qr-scan': () => openQRScan(from),
     reset: () => openReset(from),
+  });
+  $ui.querySelectorAll('input[data-vol]').forEach((inp) => {
+    const key = inp.dataset.vol;
+    const out = inp.parentElement.querySelector('.vv');
+    inp.addEventListener('input', () => {
+      const v = Number(inp.value) / 100;
+      if (key === 'music') st.musicVolume = v; else st.sfxVolume = v;
+      out.textContent = inp.value;
+      configureAudio(st);
+    });
+    inp.addEventListener('change', () => { persist(); if (key === 'sfx') play('nut'); });
   });
   $ui.querySelector('#importFile').addEventListener('change', async (e) => {
     const f = e.target.files && e.target.files[0];
@@ -420,7 +454,7 @@ function applyImported(data, from) {
     no: () => closeModal(),
     yes: async () => {
       app.save = data;
-      setSoundEnabled(data.settings.sound);
+      configureAudio(data.settings);
       app.speed2x = !!data.settings.speed2x;
       await persist();
       closeModal();
@@ -572,6 +606,7 @@ function modal(inner, acts, opts = {}) {
   m.className = 'modal';
   m.innerHTML = `<div class="sheet ${opts.center ? 'center' : ''}">${inner}</div>`;
   $ui.appendChild(m);
+  if (!opts.quiet) play('open');
   bindClicks(m, acts);
   return m;
 }
@@ -598,6 +633,8 @@ function startLevel(id) {
   app.paused = false;
   recordAttemptStart(app.save, id);
   persist();
+  setMusic('game');
+  duckMusic(false);
   renderGameUI();
   const insets = measureInsets();
   app.game.scene.start('game', {
@@ -631,7 +668,7 @@ function renderGameUI() {
   const n = app.levels.indexOf(L) + 1;
   const art = getItemArt();
   const slots = ITEM_ORDER.map((k) => `
-    <button class="slot ${L.items[k] ? '' : 'hidden'}" data-act="slot" data-item="${k}">
+    <button class="slot ${L.items[k] ? '' : 'hidden'}" data-act="slot" data-item="${k}" data-silent="1">
       <span class="ct">×${L.items[k]}</span>
       <span class="cs">${icon('sparkles', 11)}${ITEMS[k].cost}</span>
       <span class="art"><img src="${art[k]}" alt=""></span>
@@ -748,7 +785,7 @@ function updateTray() {
     release: () => { hideTips(); app.scene && app.scene.release(); },
     speed: () => { app.speed2x = !app.speed2x; app.scene && app.scene.setSpeed(app.speed2x ? 2 : 1); updateTray(); },
     finish: () => { app.scene && app.scene.finishEarly(); },
-    pcancel: () => { app.scene && app.scene.cancelPlacement(); },
+    pcancel: () => { play('back'); app.scene && app.scene.cancelPlacement(); },
     pok: () => { app.scene && app.scene.confirmPlacement(); },
   });
   ctl.querySelectorAll('[data-hold]').forEach((b) => {
@@ -757,9 +794,9 @@ function updateTray() {
     const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
     b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      play('select');
+      play('tick');
       app.scene && app.scene.rotateGhost(dir * ROTATE_STEP);
-      t1 = setTimeout(() => { t2 = setInterval(() => app.scene && app.scene.rotateGhost(dir * ROTATE_STEP / 2), 60); }, 320);
+      t1 = setTimeout(() => { t2 = setInterval(() => { play('tick', { vol: 0.6 }); app.scene && app.scene.rotateGhost(dir * ROTATE_STEP / 2); }, 60); }, 320);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => b.addEventListener(ev, stop));
   });
@@ -787,13 +824,14 @@ function setPlaceHint(html) {
 function onSlot(type) {
   const sc = app.scene;
   if (!sc || !sc.ready || sc.phase === 'end') return;
-  if (app.placement && app.placement.type === type) { sc.cancelPlacement(); return; }
+  if (app.placement && app.placement.type === type) { play('back'); sc.cancelPlacement(); return; }
   if (!sc.canAfford(type)) {
     play('denied');
     toast(sc.items[type] > 0 ? 'Не хватает магии' : 'Этот предмет закончился', true);
     return;
   }
   hideTips();
+  play('select');
   sc.startPlacement(type);
 }
 
@@ -824,6 +862,7 @@ function openPause() {
   if (!app.scene || app.screen !== 'game' || app.scene.phase === 'end') return;
   app.paused = true;
   app.game.scene.pause('game');
+  duckMusic(true);
   const L = app.level;
   modal(`
     <span class="eyebrow">Пауза</span>
@@ -832,18 +871,23 @@ function openPause() {
     <div class="btns">
       <button class="btn primary block" data-act="resume">${icon('play', 18)}Продолжить</button>
       <button class="btn secondary block" data-act="restart">${icon('refresh-ccw', 18)}Начать заново</button>
-      <button class="btn secondary block" data-act="sound">${icon(app.save.settings.sound ? 'volume-2' : 'volume-x', 18)}${app.save.settings.sound ? 'Выключить звук' : 'Включить звук'}</button>
       <button class="btn secondary block" data-act="levels">${icon('map', 18)}К уровням</button>
+    </div>
+    <div class="btns two sound">
+      <button class="btn secondary ${app.save.settings.music ? '' : 'mutedbtn'}" data-act="music">${icon(app.save.settings.music ? 'volume-2' : 'volume-x', 18)}Музыка</button>
+      <button class="btn secondary ${app.save.settings.sound ? '' : 'mutedbtn'}" data-act="sfx">${icon(app.save.settings.sound ? 'sparkles' : 'volume-x', 18)}Эффекты</button>
     </div>`, {
     resume: () => resumeLevel(),
     restart: () => { app.save.stats.restarts++; startLevel(L.id); },
-    sound: () => { app.save.settings.sound = !app.save.settings.sound; setSoundEnabled(app.save.settings.sound); persist(); openPause(); },
+    music: () => { app.save.settings.music = !app.save.settings.music; configureAudio(app.save.settings); persist(); openPause(); },
+    sfx: () => { app.save.settings.sound = !app.save.settings.sound; configureAudio(app.save.settings); persist(); openPause(); },
     levels: () => { closeModal(); showLevels(); },
-  }, { center: true });
+  }, { center: true, quiet: app.paused && !!$ui.querySelector('.modal') });
 }
 
 function resumeLevel() {
   closeModal();
+  duckMusic(false);
   app.paused = false;
   if (app.game.scene.isPaused('game')) app.game.scene.resume('game');
 }
@@ -854,6 +898,7 @@ function onLevelEnd(r) {
   const L = app.level;
   const out = applyResult(app.save, app.levels, L, r, r.bounces);
   persist();
+  duckMusic(true);
   play(r.win ? 'win' : 'lose');
   const nextId = nextLevelId(app.levels, L.id);
   const star = (on) => `<span class="st ${on ? 'on' : ''}">${icon('star', 32)}</span>`;
@@ -886,7 +931,7 @@ function onLevelEnd(r) {
       next: () => startLevel(nextId),
       levels: () => { closeModal(); showLevels(); },
     }, { center: true });
-    if (r.stars) setTimeout(() => play('star'), 250);
+    for (let k = 0; k < r.stars; k++) setTimeout(() => play('star', { rate: 1 + k * 0.12 }), 220 + k * 150);
   }, r.win ? 650 : 500);
 }
 

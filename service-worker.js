@@ -1,6 +1,6 @@
 // Сгенерировано tools/build.mjs — не редактировать вручную.
 // Офлайн-кэш игры. Сохранения хранятся отдельно (IndexedDB) и сюда не попадают.
-const VERSION = 'bfe66d444121';
+const VERSION = '4b5b5165a1fd';
 const CACHE = 'shaman-' + VERSION;
 const PRECACHE = [
   "./",
@@ -35,15 +35,22 @@ const PRECACHE = [
   "assets/audio/crate.mp3",
   "assets/audio/creak.mp3",
   "assets/audio/denied.mp3",
+  "assets/audio/hop.mp3",
   "assets/audio/lose.mp3",
   "assets/audio/lost.mp3",
+  "assets/audio/music-game.mp3",
+  "assets/audio/music-menu.mp3",
+  "assets/audio/music.json",
   "assets/audio/nut.mp3",
+  "assets/audio/open.mp3",
   "assets/audio/pin.mp3",
   "assets/audio/place.mp3",
+  "assets/audio/pop.mp3",
   "assets/audio/release.mp3",
   "assets/audio/saved.mp3",
   "assets/audio/select.mp3",
   "assets/audio/star.mp3",
+  "assets/audio/tick.mp3",
   "assets/audio/win.mp3",
   "assets/fonts/manrope-cyrillic-600-normal.woff2",
   "assets/fonts/manrope-cyrillic-700-normal.woff2",

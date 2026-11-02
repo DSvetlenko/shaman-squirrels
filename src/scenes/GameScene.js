@@ -532,6 +532,7 @@ export class GameScene extends Phaser.Scene {
     const s = new Squirrel(this, H.x + H.dir * 8, hy + 6, H.dir);
     this.squirrels.push(s);
     this.released++;
+    this.onEventCb('sfx', 'pop');
     if (!this.headless) this.drawEyes();
   }
 
