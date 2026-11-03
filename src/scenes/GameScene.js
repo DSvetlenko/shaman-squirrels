@@ -3,13 +3,13 @@
 // после «Выпустить» белки бегут сами.
 
 import { WORLD, STEP_MS, ITEMS, PIN_RADIUS, CAT, SQUIRREL } from '../config.js';
-import { islandArt, squirrelSVG, nutSVG, nutPileSVG, stumpSVG, STUMP, plankSVG, boltSVG, crateSVG, trampolineSVG, spikesSVG,
+import { islandArt, squirrelSVG, nutSVG, nutPileSVG, stumpSVG, STUMP, plankSVG, boltSVG, crateSVG, trampolineSVG, spikesSVG, SPIKES_H,
   plankCrackedSVG, gateSVG, plateSVG, beetleSVG, rockSVG, portalSVG } from '../art/svg.js';
 import { addSVGTexture } from '../art/textures.js';
 import { convexHull, pointInPoly, distToPoly, rectCorners, rad } from '../systems/geometry.js';
 import { Squirrel } from '../entities/Squirrel.js';
 import { createPlank, createCrate, createTrampoline, syncProp, destroyProp, plankEnds, currentEnd, trampNormal } from '../entities/props.js';
-import { NutPile, Gate, Updraft, Beetle, RockFall, PortalPair, Fog, COLOR_HEX } from '../entities/features.js';
+import { NutPile, Gate, Updraft, Beetle, RockFall, PortalPair, Fog, COLOR_HEX, HAZ, drawHazardBadge } from '../entities/features.js';
 
 const Matter = () => Phaser.Physics.Matter.Matter;
 
@@ -166,13 +166,25 @@ export class GameScene extends Phaser.Scene {
     // Орехи: одна или несколько куч, у кучи может быть ограниченный запас.
     this.piles = (Array.isArray(L.nuts) ? L.nuts : [L.nuts]).map((n, i) => new NutPile(this, n, i));
 
-    // Шипы.
+    // Шипы. Вокруг — пульсирующая красная зона, на подготовке над ними значок «!».
+    this.spikeFx = [];
     (L.spikes || []).forEach((sp, i) => {
       add(M.Bodies.rectangle(sp.x + sp.w / 2, sp.y - 8, sp.w - 4, 14, {
         isStatic: true, isSensor: true, label: 'spikes',
         collisionFilter: { category: CAT.SENSOR, mask: CAT.SQUIRREL },
       }));
-      if (!this.headless) this.add.image(sp.x, sp.y + 1, `spk_${L.id}_${i}`).setOrigin(0, 1).setDisplaySize(Math.ceil(sp.w), 22).setDepth(13);
+      if (this.headless) return;
+      this.add.image(sp.x, sp.y + 1, `spk_${L.id}_${i}`).setOrigin(0, 1).setDisplaySize(Math.ceil(sp.w), SPIKES_H).setDepth(13);
+      const zone = (g) => g.fillStyle(HAZ, 1).fillRoundedRect(sp.x - 3, sp.y - 24, sp.w + 6, 28, 5);
+      const glow = this.add.graphics().setDepth(12);
+      zone(glow);
+      glow.setAlpha(0.18);
+      this.tweens.add({ targets: glow, alpha: 0.38, duration: 800, ease: 'Sine.easeInOut', yoyo: true, repeat: -1 });
+      const hot = this.add.graphics().setDepth(12).setAlpha(0);
+      zone(hot);
+      const mark = this.add.graphics().setDepth(45);
+      drawHazardBadge(mark, sp.x + sp.w / 2, sp.y - 38);
+      this.spikeFx.push({ x0: sp.x, x1: sp.x + sp.w, y: sp.y, hot, mark });
     });
 
     // Заранее стоящие предметы уровня (в том числе ветхие доски).
@@ -483,6 +495,7 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'run';
     this.undoStack = [];
     this.spawnTimer = 0;
+    for (const f of this.spikeFx || []) this.tweens.add({ targets: f.mark, alpha: 0, duration: 200 });
     this.onEventCb('sfx', 'release');
     this.emitHud();
   }
@@ -514,6 +527,12 @@ export class GameScene extends Phaser.Scene {
     for (const b of this.beetles) b.render();
     for (const r of this.rockFalls) r.render();
     if (this.fog) this.fog.render();
+    // Шипы «ощетиниваются», когда белка подходит ближе 36 ед.
+    for (const f of this.spikeFx) {
+      const near = this.phase === 'run' && this.squirrels.some((s) => s.body && Math.abs(s.body.position.y - f.y) < 30
+        && s.body.position.x > f.x0 - 36 && s.body.position.x < f.x1 + 36);
+      f.hot.setAlpha(Math.max(0, Math.min(0.35, f.hot.alpha + (near ? 0.05 : -0.03))));
+    }
   }
 
   tick() {

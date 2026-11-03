@@ -147,14 +147,27 @@ export function trampolineSVG() {
   return svgDoc(70, 30, body);
 }
 
+// Шипы: тёмная сталь со светлыми остриями на красном основании — не путаются с травой.
+// Высота текстуры 26: зубцы 2…21, основание 21…25.
+export const SPIKES_H = 26;
 export function spikesSVG(w) {
-  const n = Math.max(2, Math.round(w / 14));
+  const n = Math.max(2, Math.round(w / 12));
   const step = w / n;
-  let d = `M0 20`;
-  for (let i = 0; i < n; i++) d += ` L${f1(i * step + step / 2)} 2 L${f1((i + 1) * step)} 20`;
-  const body = `<path d="${d} Z" fill="#c9ced8" stroke="${OUTLINE}" stroke-width="1.6" stroke-linejoin="round"/>
-  <path d="${Array.from({ length: n }, (_, i) => `M${f1(i * step + step / 2)} 4 L${f1(i * step + step * 0.32)} 18`).join(' ')}" stroke="#fff" stroke-width="1.2" opacity=".7"/>`;
-  return svgDoc(Math.ceil(w), 22, body);
+  let d = `M0 21`, lit = '', tips = '';
+  for (let i = 0; i < n; i++) {
+    const x0 = i * step, xm = x0 + step / 2, x1 = x0 + step, a = step * 0.14;
+    d += ` L${f1(xm)} 2 L${f1(x1)} 21`;
+    lit += `M${f1(x0 + 1)} 21 L${f1(xm)} 3 L${f1(xm)} 21 Z `;
+    tips += `M${f1(xm - a)} 7.5 L${f1(xm)} 2 L${f1(xm + a)} 7.5 Z `;
+  }
+  const defs = `<linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a6070"/><stop offset="1" stop-color="#2f333d"/></linearGradient>`;
+  const body = `<path d="${d} Z" fill="url(#steel)"/>
+  <path d="${lit}" fill="#8a90a0" opacity=".55"/>
+  <path d="${tips}" fill="#fff4e0"/>
+  <path d="${d} Z" fill="none" stroke="${OUTLINE}" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="1" y="21" width="${f1(w - 2)}" height="4" rx="1" fill="#b3261e" stroke="${OUTLINE}" stroke-width="1.4"/>
+  <rect x="2" y="21.2" width="${f1(w - 4)}" height="1" fill="#ff6b5b"/>`;
+  return svgDoc(Math.ceil(w), SPIKES_H, body, defs);
 }
 
 // ---------------------------------------------------------------- парящий остров

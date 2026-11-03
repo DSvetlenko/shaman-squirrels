@@ -223,6 +223,9 @@ p{text-wrap:pretty}
 .tip .tb .dots i{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.22)}
 .tip .tb .dots i.on{background:var(--amber);width:16px}
 .tip .btn{min-height:44px;padding:0 18px;font-size:14px}
+.tip.hazard{border:1px solid rgba(255,107,91,.55)}
+.tip.hazard .bulb{background:#ff6b5b;color:#fff4e0;border:1.5px solid #26170d;border-radius:50%;font:800 20px/1 Unbounded,sans-serif}
+.tip.hazard p b{color:#ffd0c8}
 
 /* модальные окна */
 .modal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);background:rgba(8,10,16,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);animation:fade .2s}

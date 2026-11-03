@@ -881,12 +881,29 @@ function onSlot(type) {
 }
 
 // ------------------------------------------------------------------ подсказки
+// Опасности объясняются до забега, даже если подсказки выключены, — пока уровень не пройден.
+const HAZARD_NOTES = [
+  ['rocks', 'Камнепад', 'Красный столб и тень показывают, куда упадёт камень, кольцо над ним — когда. Доска или ящик над тенью примут удар.'],
+  ['spikes', 'Шипы', 'Красная зона с шипами смертельна для белки. Путь должен пройти над шипами или в обход.'],
+];
 function maybeShowTips() {
   const L = app.level;
   const rec = app.save.levels[L.id];
-  if (!app.save.settings.hints || !L.tips.length) return;
   if (rec && rec.completed) return;
-  showTip(0);
+  const notes = HAZARD_NOTES.filter(([k]) => (L[k] || []).length);
+  const tips = () => { if (app.save.settings.hints && L.tips.length) showTip(0); else hideTips(); };
+  if (notes.length) showHazard(notes, 0, tips); else tips();
+}
+function showHazard(notes, i, then) {
+  const wrap = $ui.querySelector('.tipwrap');
+  if (!wrap || !app.level) return;
+  if (i >= notes.length) return then();
+  const [, title, text] = notes[i];
+  wrap.innerHTML = `<div class="tip glass hazard">
+    <div class="tt"><span class="bulb">!</span><p><b>${esc(title)}.</b> ${esc(text)}</p></div>
+    <div class="tb"><span class="dots"></span><button class="btn secondary" data-act="next">Понятно</button></div>
+  </div>`;
+  bindClicks(wrap, { next: () => showHazard(notes, i + 1, then) });
 }
 function showTip(i) {
   const wrap = $ui.querySelector('.tipwrap');

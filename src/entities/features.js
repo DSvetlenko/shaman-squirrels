@@ -11,6 +11,21 @@ const Matter = () => Phaser.Physics.Matter.Matter;
 const COLORS = [0xf2a541, 0x7fe3ff, 0xff8fb6, 0x9ff0c4];
 export const COLOR_HEX = ['#f2a541', '#7fe3ff', '#ff8fb6', '#9ff0c4'];
 
+// Язык опасности: всё, что убивает белку, помечено одинаково — красный сигнал,
+// тёмный контур и светлое «!». Цвет не единственный признак: есть форма и движение.
+export const HAZ = 0xff6b5b, HAZ_DEEP = 0xb3261e, HAZ_LIGHT = 0xfff4e0, HAZ_LINE = 0x26170d;
+
+// Значок «!» в круге (радиус 10 в мировых единицах).
+export function drawHazardBadge(g, x, y, s = 1, alpha = 1) {
+  g.fillStyle(HAZ, alpha);
+  g.fillCircle(x, y, 10 * s);
+  g.lineStyle(1.8 * s, HAZ_LINE, alpha);
+  g.strokeCircle(x, y, 10 * s);
+  g.fillStyle(HAZ_LIGHT, alpha);
+  g.fillRoundedRect(x - 1.4 * s, y - 6 * s, 2.8 * s, 7.6 * s, 1.2 * s);
+  g.fillCircle(x, y + 4.6 * s, 1.5 * s);
+}
+
 function overlaps(b, x0, y0, x1, y1) {
   const bb = b.bounds;
   return bb.max.x > x0 && bb.min.x < x1 && bb.max.y > y0 && bb.min.y < y1;
@@ -241,19 +256,58 @@ export class Beetle {
 }
 
 // ---------------------------------------------------------------- камнепад
+const ROCK_MASK = CAT.TERRAIN | CAT.PLANK | CAT.CRATE | CAT.ROCK | CAT.SQUIRREL;
+const FIRST_ROCK_STEP = 60;   // первый камень не раньше 1 с после «Выпустить»
+
 export class RockFall {
   constructor(scene, data, i) {
     this.scene = scene;
     this.d = { offset: 0, every: 2.6, r: 11, ...data };
     this.idx = i;
-    if (!scene.headless) this.warn = scene.add.graphics().setDepth(44);
+    if (!scene.headless) {
+      // Предупреждение: столб зоны падения (за островами), тень в точке удара,
+      // значок с кольцом отсчёта сверху и демо-камень на подготовке.
+      this.column = scene.add.graphics().setDepth(9);
+      this.shadow = scene.add.graphics().setDepth(23);
+      this.warn = scene.add.graphics().setDepth(44);
+      this.demo = scene.add.image(this.d.x, -30, 'rock').setDepth(26).setAlpha(0)
+        .setDisplaySize(this.d.r * 2 + 4, this.d.r * 2 + 4);
+      this.impactY = null;
+      this.impactAge = 999;
+      this.lastRock = null;
+    }
   }
 
+  // Первая сверху поверхность, о которую ударится камень: острова, доски, ящики.
+  // Тот же фильтр столкновений, что у камня; null — камень улетит в пропасть.
+  computeImpact() {
+    const M = Matter();
+    const x = this.d.x, r = this.d.r;
+    const bodies = M.Composite.allBodies(this.scene.matter.world.localWorld).filter((b) => !b.isSensor
+      && (b.collisionFilter.category & ROCK_MASK & ~(CAT.ROCK | CAT.SQUIRREL)) && (b.collisionFilter.mask & CAT.ROCK)
+      && b.bounds.min.x <= x + r && b.bounds.max.x >= x - r);
+    if (!bodies.length) return null;
+    const probes = [[0, r], [-r * 0.7, r * 0.7], [r * 0.7, r * 0.7], [-r, 0], [r, 0]];
+    const hit = (px, py) => bodies.some((b) => (b.parts.length > 1 ? b.parts.slice(1) : [b])
+      .some((p) => M.Vertices.contains(p.vertices, { x: px, y: py })));
+    for (let cy = -24; cy < WORLD.killY; cy += 2) {
+      if (probes.some(([dx, dy]) => hit(x + dx, cy + dy))) return cy + r;
+    }
+    return null;
+  }
+
+  // Шагов до следующего камня. Камни раньше FIRST_ROCK_STEP после «Выпустить»
+  // не падают: игрок успевает увидеть предупреждение (ритм остальных не меняется).
   stepsToNext() {
-    const t = this.scene.runSteps - Math.round(this.d.offset * 60);
-    const per = Math.round(this.d.every * 60);
-    if (t < 0) return -t;
-    return (per - (t % per)) % per;
+    const at = (s) => {
+      const t = s - Math.round(this.d.offset * 60);
+      const per = Math.round(this.d.every * 60);
+      if (t < 0) return -t;
+      return (per - (t % per)) % per;
+    };
+    const now = this.scene.runSteps;
+    const n = at(now);
+    return now + n >= FIRST_ROCK_STEP ? n : FIRST_ROCK_STEP - now + at(FIRST_ROCK_STEP);
   }
 
   tick() {
@@ -273,21 +327,74 @@ export class RockFall {
       rock.sprite = this.scene.add.image(this.d.x, -24, 'rock').setDepth(26).setDisplaySize(this.d.r * 2 + 4, this.d.r * 2 + 4);
     }
     this.scene.rocks.push(rock);
+    this.lastRock = rock;
   }
 
   render() {
     if (!this.warn) return;
-    const g = this.warn;
-    g.clear();
-    if (this.scene.phase !== 'run' && this.scene.phase !== 'build') return;
-    const n = this.scene.phase === 'build' ? 999 : this.stepsToNext();
-    // Метка сверху: всегда видна, мигает перед падением.
-    const blink = n < 50 ? (Math.floor(n / 6) % 2 ? 1 : 0.35) : 0.55;
-    const x = this.d.x, y = 6;
-    g.fillStyle(0xff8a5b, blink);
-    g.fillTriangle(x - 9, y, x + 9, y, x, y + 12);
-    g.lineStyle(1.5, 0x26170d, blink);
-    g.strokeTriangle(x - 9, y, x + 9, y, x, y + 12);
+    const sc = this.scene, g = this.warn, col = this.column, sh = this.shadow;
+    g.clear(); col.clear(); sh.clear();
+    if (sc.phase !== 'run' && sc.phase !== 'build') { this.demo.setAlpha(0); return; }
+    const x = this.d.x, r = this.d.r;
+    // Точку удара пересчитываем раз в несколько кадров: доски могут сдвинуться.
+    if (++this.impactAge > (sc.phase === 'build' ? 10 : 6)) { this.impactY = this.computeImpact(); this.impactAge = 0; }
+    const iy = this.impactY;
+    const per = Math.round(this.d.every * 60);
+    const n = sc.phase === 'build' ? null : this.stepsToNext();
+    // Окно тревоги — не меньше секунды реального времени, в том числе на ×2.
+    const win = 60 * Math.max(1, sc.stepsPerFrame || 1);
+    const falling = sc.phase === 'run' && this.lastRock && sc.rocks.includes(this.lastRock)
+      && iy != null && this.lastRock.body.position.y < iy - r - 2;
+    const alarm = sc.phase === 'run' && (n < win || falling) ? (falling ? 1 : 1 - n / win) : 0;
+    const pulse = 0.5 + 0.5 * Math.sin(sc.time.now / 1000 * Math.PI * 2 * 0.8);
+
+    // Столб зоны падения: от значка до точки удара (или до низа поля).
+    const top = 32, bottom = iy != null ? iy : WORLD.h;
+    col.fillStyle(HAZ, 0.08 + 0.14 * alarm + (sc.phase === 'build' ? 0.04 * pulse : 0));
+    col.fillRect(x - r - 3, top, 2 * r + 6, bottom - top);
+    col.lineStyle(1.5, HAZ_LINE, 0.45);
+    for (let y = top; y < bottom; y += 12) {
+      const y2 = Math.min(bottom, y + 6);
+      col.lineBetween(x - r - 3, y, x - r - 3, y2);
+      col.lineBetween(x + r + 3, y, x + r + 3, y2);
+    }
+
+    // Тень и красные скобки в точке удара — главное «где именно упадёт».
+    if (iy != null) {
+      const k = sc.phase === 'build' ? 0.75 + 0.15 * pulse : 0.7 + 0.3 * alarm;
+      sh.fillStyle(HAZ_LINE, sc.phase === 'build' ? 0.4 : 0.22 + 0.38 * alarm);
+      sh.fillEllipse(x, iy - 1, (2 * r + 8) * k, 7 * k);
+      sh.lineStyle(2, HAZ, 0.9);
+      const bx = r + 6;
+      sh.beginPath(); sh.moveTo(x - bx, iy - 6); sh.lineTo(x - bx, iy); sh.lineTo(x - bx + 5, iy); sh.strokePath();
+      sh.beginPath(); sh.moveTo(x + bx, iy - 6); sh.lineTo(x + bx, iy); sh.lineTo(x + bx - 5, iy); sh.strokePath();
+    }
+
+    // Значок «!» и кольцо отсчёта до следующего камня.
+    const by = 16;
+    const s = 1 + 0.12 * alarm * (0.5 + 0.5 * Math.sin(sc.time.now / 1000 * Math.PI * 2 * 2));
+    g.fillStyle(HAZ_LINE, 0.5);
+    g.fillCircle(x, by, 14);
+    drawHazardBadge(g, x, by, s);
+    if (n != null) {
+      const frac = 1 - n / per;
+      g.lineStyle(2.5, alarm > 0 ? HAZ : HAZ_LIGHT, 1);
+      g.beginPath();
+      g.arc(x, by, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac, false);
+      g.strokePath();
+    }
+    g.fillStyle(HAZ, 1);
+    g.fillTriangle(x - 5, 28, x + 5, 28, x, 34);
+    g.lineStyle(1.2, HAZ_LINE, 1);
+    g.strokeTriangle(x - 5, 28, x + 5, 28, x, 34);
+
+    // Демо-падение на подготовке: полупрозрачный камень раз в 2.4 с.
+    if (sc.phase === 'build') {
+      const t = (sc.time.now / 1000 + this.d.offset) % 2.4;
+      const end = (iy != null ? iy : WORLD.h) - r;
+      if (t < 0.8) this.demo.setAlpha(0.5).setPosition(x, 20 + (end - 20) * (t / 0.8) ** 2);
+      else this.demo.setAlpha(0);
+    } else this.demo.setAlpha(0);
   }
 }
 
