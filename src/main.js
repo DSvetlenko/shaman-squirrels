@@ -14,7 +14,7 @@ import { getItemArt, menuArtSVG, getShamanArt } from './ui/art.js';
 import { unlockAudio, play, configureAudio, setMusic, duckMusic, suspendAudio, resumeAudio, audioState } from './core/audio.js';
 import {
   ACHIEVEMENTS, achievementState, totalStars, isUnlocked, nextLevelId, continueLevel,
-  recordAttemptStart, applyResult, checkAchievements,
+  recordAttemptStart, applyResult, checkAchievements, setCampaign,
 } from './systems/progress.js';
 
 const $ui = document.getElementById('ui');
@@ -53,6 +53,7 @@ async function boot() {
     app.save = save;
     app.levels = lv.levels;
     app.worlds = lv.worlds;
+    setCampaign(app.levels);
   } catch (e) {
     console.error(e);
     app.save = app.save || defaultSave();

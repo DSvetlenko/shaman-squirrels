@@ -122,7 +122,7 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7', 'iP
   const { ctx, page } = await newPage('iPhone 13', { serviceWorkers: 'block' });
   await page.goto(base);
   await ready(page);
-  await page.evaluate(() => { window.__app.save.levels['w1-05'] = { completed: true, stars: 2, bestSaved: 5, bestTimeMs: 9000, bestMana: 30, attempts: 3, wins: 1 }; window.__app.save.unlocked.push('w1-06'); return window.__persist(); });
+  await page.evaluate(() => { window.__app.save.levels['w1-05'] = { completed: true, stars: 2, bestSaved: 5, bestTimeMs: 9000, bestMana: 30, attempts: 3, wins: 1 }; window.__app.save.unlocked.push('w1-07'); return window.__persist(); });
   const orig = JSON.parse(fs.readFileSync(path.join(root, 'levels/levels.json'), 'utf8'));
   const n0 = orig.levels.length;
   const extra = JSON.parse(JSON.stringify(orig.levels[0]));
@@ -131,7 +131,7 @@ for (const dev of ['iPhone SE', 'iPhone 13', 'iPhone 15 Pro Max', 'Pixel 7', 'iP
   await page.route('**/levels/levels.json', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(mod) }));
   await page.reload();
   await ready(page);
-  const st = await page.evaluate(() => ({ n: window.__app.levels.length, r: window.__app.save.levels['w1-05'], u6: window.__isUnlocked('w1-06') }));
+  const st = await page.evaluate(() => ({ n: window.__app.levels.length, r: window.__app.save.levels['w1-05'], u6: window.__isUnlocked('w1-07') }));
   ok('после добавления уровней старые результаты и открытые уровни сохраняются', st.n === n0 + 2 && st.r && st.r.stars === 2 && st.u6, JSON.stringify(st));
   await ctx.close();
 }

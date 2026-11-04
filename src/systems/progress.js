@@ -9,14 +9,14 @@ export const ACHIEVEMENTS = [
   { id: 'stars_15', title: 'Звездочёт', desc: 'Собери 15 звёзд', progress: (s) => [totalStars(s), 15] },
   { id: 'stars_30', title: 'Тридцать звёзд', desc: 'Собери 30 звёзд', progress: (s) => [totalStars(s), 30] },
   { id: 'stars_75', title: 'Звёздный путь', desc: 'Собери 75 звёзд', progress: (s) => [totalStars(s), 75] },
-  { id: 'stars_150', title: 'Небосвод', desc: 'Собери 150 звёзд', progress: (s) => [totalStars(s), 150] },
+  { id: 'stars_150', title: 'Небосвод', desc: 'Собери 70 звёзд', progress: (s) => [totalStars(s), 70] },
   { id: 'saved_50', title: 'Полное дупло', desc: 'Верни домой 50 белок', progress: (s) => [s.stats.squirrelsSaved, 50] },
   { id: 'carpenter', title: 'Плотник', desc: 'Поставь 20 досок', progress: (s) => [s.stats.itemsPlaced.plank + s.stats.itemsPlaced.longPlank, 20] },
   { id: 'bouncy', title: 'Прыгучие', desc: 'Подбрось белок батутом 30 раз', progress: (s) => [s.stats.bounces || 0, 30] },
-  { id: 'all_or_nothing', title: 'Все до одного', desc: 'Пройди уровень «Все до одного»', check: (s) => isDone(s, 'w1-08') },
+  { id: 'all_or_nothing', title: 'Все до одного', desc: 'Пройди уровень «Двое ворот»', check: (s) => isDone(s, 'w2-06') },
   { id: 'storm', title: 'Буря позади', desc: 'Пройди испытание «Буря»', check: (s) => isDone(s, 'w1-10') },
-  { id: 'world2', title: 'Ореховая роща', desc: 'Пройди второй мир', check: (s) => isDone(s, 'w2-10') },
-  { id: 'world3', title: 'Ветреные выси', desc: 'Пройди третий мир', check: (s) => isDone(s, 'w3-10') },
+  { id: 'world2', title: 'Ореховая роща', desc: 'Пройди второй мир', check: (s) => isDone(s, 'w1-10') },
+  { id: 'world3', title: 'Ветреные выси', desc: 'Пройди третий мир', check: (s) => isDone(s, 'w2-03') },
   { id: 'world4', title: 'Сквозь туман', desc: 'Пройди испытание «Туманный путь»', check: (s) => isDone(s, 'w4-10') },
   { id: 'world5', title: 'Повелитель бури', desc: 'Пройди испытание «Буревал»', check: (s) => isDone(s, 'w5-10') },
   { id: 'squash_10', title: 'Хрусь', desc: 'Раздави ящиками 10 колючих жуков', progress: (s) => [s.stats.beetles || 0, 10] },
@@ -24,7 +24,13 @@ export const ACHIEVEMENTS = [
 ];
 
 function isDone(s, id) { return !!(s.levels[id] && s.levels[id].completed); }
-export function totalStars(s) { return Object.values(s.levels).reduce((a, l) => a + (l.stars || 0), 0); }
+// Кампания может сокращаться: прогресс по убранным из неё уровням остаётся в сохранении,
+// но в звёзды и открытие уровней не входит.
+let campaign = null;
+export function setCampaign(levels) { campaign = new Set(levels.map((l) => l.id)); }
+export function totalStars(s) {
+  return Object.entries(s.levels).reduce((a, [id, l]) => a + (!campaign || campaign.has(id) ? (l.stars || 0) : 0), 0);
+}
 
 export function achievementState(save, a) {
   const unlocked = !!save.achievements[a.id];
@@ -51,7 +57,10 @@ export function isUnlocked(save, levels, id) {
   if (idx <= 0) return idx === 0;
   if (save.unlocked.includes(id)) return true;
   const prev = levels[idx - 1];
-  return isDone(save, prev.id);
+  if (isDone(save, prev.id)) return true;
+  // Игрок, прошедший уровень дальше по списку (старое сохранение до перестройки кампании),
+  // не должен проходить пропущенное заново, чтобы двигаться вперёд.
+  return levels.slice(idx + 1).some((l) => isDone(save, l.id));
 }
 
 export function nextLevelId(levels, id) {
